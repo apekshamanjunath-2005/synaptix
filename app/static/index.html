@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synaptix — Multi-Agent AI Personal Productivity Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Synaptix</h1>
+          <span class="brand-tag">Multi-Agent AI</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="chat">
+          <span class="nav-icon">💬</span>
+          <span>AI Assistant</span>
+          <span class="nav-badge">Coordinator</span>
+        </button>
+        <button class="nav-item" data-tab="tasks">
+          <span class="nav-icon">✅</span>
+          <span>Tasks</span>
+        </button>
+        <button class="nav-item" data-tab="notes">
+          <span class="nav-icon">📝</span>
+          <span>Notes</span>
+        </button>
+        <button class="nav-item" data-tab="calendar">
+          <span class="nav-icon">📅</span>
+          <span>Calendar</span>
+        </button>
+        <button class="nav-item" data-tab="planner">
+          <span class="nav-icon">🧭</span>
+          <span>Smart Planner</span>
+        </button>
+        <button class="nav-item" data-tab="telemetry">
+          <span class="nav-icon">📊</span>
+          <span>Budget & Telemetry</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer Status -->
+      <div class="sidebar-footer">
+        <div class="budget-pill">
+          <span class="budget-dot"></span>
+          <span>₹0 Budget Active</span>
+        </div>
+        <div class="server-status" id="serverStatusBadge">
+          <span class="status-indicator online"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Navigation Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <h2 id="currentTabTitle">AI Assistant</h2>
+          <p id="currentTabDesc">Talk to the Coordinator Agent to manage tasks, notes, calendar, and daily plans.</p>
+        </div>
+        <div class="header-right">
+          <div class="agent-roster">
+            <div class="agent-chip active" title="Coordinator: Active and ready">
+              <span class="agent-dot"></span> Coordinator
+            </div>
+            <div class="agent-chip standby" title="Task Agent: Configured in Milestone 3">
+              <span class="agent-dot"></span> Tasks
+            </div>
+            <div class="agent-chip standby" title="Notes Agent: Configured in Milestone 3">
+              <span class="agent-dot"></span> Notes
+            </div>
+            <div class="agent-chip standby" title="Calendar Agent: Configured in Milestone 3 & 5">
+              <span class="agent-dot"></span> Calendar
+            </div>
+            <div class="agent-chip standby" title="Planner Agent: Configured in Milestone 3 & 7">
+              <span class="agent-dot"></span> Planner
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Tab 1: AI Chat View -->
+      <section class="tab-pane active" id="tab-chat">
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+              <div class="message-avatar">🧠</div>
+              <div class="message-body">
+                <div class="message-sender">Synaptix Coordinator Agent</div>
+                <div class="message-text">
+                  <p><strong>Welcome to Synaptix!</strong> Milestone 1 foundation is operational.</p>
+                  <p>I am your central Coordinator Agent. In the upcoming milestones, I will orchestrate 4 specialized agents to manage your personal productivity:</p>
+                  <ul>
+                    <li><strong>Task Agent:</strong> Creates, prioritizes, and tracks your deadlines in Firestore.</li>
+                    <li><strong>Notes Agent:</strong> Organizes, retrieves, and searches your thoughts and meeting notes.</li>
+                    <li><strong>Calendar Agent:</strong> Integrates with Google Calendar via MCP to track events and detect conflicts.</li>
+                    <li><strong>Smart Day Planner:</strong> Synthesizes pending tasks, meetings, and local weather to build your daily timetable.</li>
+                  </ul>
+                  <p class="hint-text">💡 <em>In Milestone 2, we will connect Google Gemini 2.5 Flash to enable live intelligence. Check out the <strong>Budget & Telemetry</strong> tab to view your active ₹0 safeguards!</em></p>
+                </div>
+                <div class="message-time" id="welcomeTime">Just now</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Suggested prompts -->
+          <div class="prompt-chips">
+            <button class="chip" data-prompt="What agents are in Synaptix?">What agents are in Synaptix?</button>
+            <button class="chip" data-prompt="Check backend health and ₹0 quota">Check backend health & budget</button>
+            <button class="chip" data-prompt="Show pending tasks">Show pending tasks</button>
+            <button class="chip" data-prompt="Plan my day tomorrow">Plan my day tomorrow</button>
+          </div>
+
+          <!-- Chat Input -->
+          <div class="chat-input-wrapper">
+            <form id="chatForm" class="chat-form">
+              <textarea id="userInput" placeholder="Ask Synaptix to manage tasks, notes, schedule, or plan your day..." rows="1"></textarea>
+              <button type="submit" id="sendBtn" class="send-btn" title="Send message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2: Tasks View -->
+      <section class="tab-pane" id="tab-tasks">
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-num" id="taskPendingCount">0</div>
+            <div class="stat-label">Pending Tasks</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-num" id="taskCompletedCount">0</div>
+            <div class="stat-label">Completed Tasks</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-num" id="taskPriorityCount">0</div>
+            <div class="stat-label">High Priority</div>
+          </div>
+        </div>
+        <div class="card info-box">
+          <h3>Task Agent Integration</h3>
+          <p>The Task Agent will manage your tasks with due dates, priority levels, and statuses directly in <strong>Firebase Firestore (Spark Plan — ₹0)</strong> starting in Milestone 3 & 4.</p>
+        </div>
+      </section>
+
+      <!-- Tab 3: Notes View -->
+      <section class="tab-pane" id="tab-notes">
+        <div class="card info-box">
+          <h3>Notes Agent Integration</h3>
+          <p>The Notes Agent enables semantic search, tagging, and contextual retrieval for your personal and project notes, stored in Firestore.</p>
+        </div>
+      </section>
+
+      <!-- Tab 4: Calendar View -->
+      <section class="tab-pane" id="tab-calendar">
+        <div class="card info-box">
+          <h3>Google Calendar MCP Integration</h3>
+          <p>Connecting in Milestone 5 via <strong>Model Context Protocol (MCP)</strong> using your official Google OAuth credentials for ₹0 calendar event discovery and conflict prevention.</p>
+        </div>
+      </section>
+
+      <!-- Tab 5: Smart Planner View -->
+      <section class="tab-pane" id="tab-planner">
+        <div class="card info-box">
+          <h3>Smart Day Planner</h3>
+          <p>Synthesizes information from the Task Agent, Calendar Agent, and OpenWeatherMap API to curate an optimized, conflict-free schedule for your day.</p>
+        </div>
+      </section>
+
+      <!-- Tab 6: Telemetry & Budget View -->
+      <section class="tab-pane" id="tab-telemetry">
+        <div class="card-grid">
+          <div class="card">
+            <h3>Backend Health</h3>
+            <div class="telemetry-item"><span>Status:</span> <strong id="telStatus" class="highlight-green">Checking...</strong></div>
+            <div class="telemetry-item"><span>Uptime:</span> <span id="telUptime">0s</span></div>
+            <div class="telemetry-item"><span>Python Version:</span> <span id="telPython">-</span></div>
+            <div class="telemetry-item"><span>Environment:</span> <span id="telEnv">-</span></div>
+          </div>
+          <div class="card">
+            <h3>Strict ₹0 Budget Safeguards</h3>
+            <div class="telemetry-item"><span>Tier:</span> <strong class="highlight-green">₹0 Free Tier (Enforced)</strong></div>
+            <div class="telemetry-item"><span>LLM Daily Limit:</span> <span id="telDailyLimit">100</span></div>
+            <div class="telemetry-item"><span>LLM Requests Made:</span> <span id="telRequestsMade">0</span></div>
+            <div class="telemetry-item"><span>Remaining Requests:</span> <strong id="telRemaining">100</strong></div>
+            <div class="telemetry-item"><span>Total Tokens Consumed:</span> <span id="telTokens">0</span></div>
+          </div>
+          <div class="card">
+            <h3>Integration Readiness</h3>
+            <div class="telemetry-item"><span>Gemini 2.5 Flash:</span> <span id="telGemini">Milestone 2</span></div>
+            <div class="telemetry-item"><span>Firebase Firestore:</span> <span id="telFirestore">Milestone 4</span></div>
+            <div class="telemetry-item"><span>Google Calendar MCP:</span> <span id="telCalendar">Milestone 5</span></div>
+            <div class="telemetry-item"><span>OpenWeatherMap API:</span> <span id="telWeather">Milestone 6</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
