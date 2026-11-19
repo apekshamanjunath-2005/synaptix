@@ -47,5 +47,10 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Cached settings instance so we don't re-read .env on every request.
+    Automatically mirrors GEMINI_API_KEY to os.environ for Google ADK compatibility.
     """
-    return Settings()
+    s = Settings()
+    if s.GEMINI_API_KEY and s.GEMINI_API_KEY.strip():
+        import os
+        os.environ.setdefault("GEMINI_API_KEY", s.GEMINI_API_KEY.strip())
+    return s

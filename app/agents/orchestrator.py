@@ -77,6 +77,10 @@ class MultiAgentOrchestrator:
             # If no API key configured, use deterministic agent routing for testing/offline mode
             return await self._deterministic_offline_delegation(user_input, sid)
 
+        # Set environment variable so Google ADK Gemini model authenticates automatically
+        import os
+        os.environ["GEMINI_API_KEY"] = api_key.strip()
+
         # 3. Live Google ADK Execution with Gemini
         usage_tracker.record_agent_run()
         content = genai_types.Content(
