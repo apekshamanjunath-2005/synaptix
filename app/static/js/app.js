@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatMessages = document.getElementById('chatMessages');
   const chatForm = document.getElementById('chatForm');
   const userInput = document.getElementById('userInput');
+  const auraGlowWrapper = document.getElementById('auraGlowWrapper');
   const modeSelect = document.getElementById('modeSelect');
   const chips = document.querySelectorAll('.chip[data-prompt]');
   const sendBtn = document.getElementById('sendBtn');
@@ -325,10 +326,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'message assistant loading-msg';
     msgDiv.innerHTML = `
-      <div class="message-avatar">✨</div>
+      <div class="message-avatar thinking-avatar">
+        <div class="avatar-orbit-ring"></div>
+        <span>✨</span>
+      </div>
       <div class="message-body">
-        <div class="message-sender">Synaptix AI</div>
-        <div class="message-text"><p style="color:var(--text-secondary);font-style:italic;">Synthesizing request...</p></div>
+        <div class="message-sender thinking-sender">
+          <span>Synaptix Coordinator</span>
+          <span class="thinking-dots">
+            <span class="dot dot-1"></span>
+            <span class="dot dot-2"></span>
+            <span class="dot dot-3"></span>
+          </span>
+        </div>
+        <div class="message-text thinking-bubble">
+          <span class="shimmer-text">Analyzing intent & delegating across agent swarm...</span>
+        </div>
       </div>
     `;
     chatMessages.appendChild(msgDiv);
@@ -349,6 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
       userInput.value = '';
       userInput.disabled = true;
       sendBtn.disabled = true;
+
+      // Trigger Thinking Animation on Prompt Box Aura
+      if (auraGlowWrapper) {
+        auraGlowWrapper.classList.remove('is-focused');
+        auraGlowWrapper.classList.add('is-thinking');
+      }
 
       const loadingElem = appendLoadingMessage();
 
@@ -408,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (loadingElem) loadingElem.remove();
         appendMessage('Synaptix Error', `⚠️ Could not reach backend: ${err.message}`, false);
       } finally {
+        if (auraGlowWrapper) auraGlowWrapper.classList.remove('is-thinking');
         userInput.disabled = false;
         sendBtn.disabled = false;
         userInput.focus();
@@ -1068,13 +1088,60 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   updateChatDockState();
 
-  // Auto-resize / Enter to submit textarea
+  // Auto-resize / Enter to submit textarea & Focus Glow States
   if (userInput) {
     userInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         chatForm.dispatchEvent(new Event('submit'));
       }
+    });
+
+    if (auraGlowWrapper) {
+      userInput.addEventListener('focus', () => {
+        auraGlowWrapper.classList.add('is-focused');
+      });
+      userInput.addEventListener('blur', () => {
+        auraGlowWrapper.classList.remove('is-focused');
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 16. INTERACTIVE CURSOR SPOTLIGHT (60fps Lerp Interpolation)
+  // ══════════════════════════════════════════════════════════════════════════
+  const spotlight = document.getElementById('cursorSpotlight');
+  if (spotlight) {
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let currentX = targetX;
+    let currentY = targetY;
+    let rafId = null;
+
+    function renderSpotlight() {
+      // Smooth linear interpolation (lerp)
+      currentX += (targetX - currentX) * 0.12;
+      currentY += (targetY - currentY) * 0.12;
+      spotlight.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate3d(-50%, -50%, 0)`;
+
+      if (Math.abs(targetX - currentX) > 0.15 || Math.abs(targetY - currentY) > 0.15) {
+        rafId = requestAnimationFrame(renderSpotlight);
+      } else {
+        rafId = null;
+      }
+    }
+
+    window.addEventListener('mousemove', (e) => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+      spotlight.style.opacity = '1';
+      if (!rafId) {
+        rafId = requestAnimationFrame(renderSpotlight);
+      }
+    }, { passive: true });
+
+    document.addEventListener('mouseleave', () => {
+      spotlight.style.opacity = '0';
     });
   }
 });

@@ -10,6 +10,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+  <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
+  <div class="ambient-canvas" aria-hidden="true">
+    <div class="ambient-orb orb-orange"></div>
+    <div class="ambient-orb orb-blue"></div>
+    <div class="ambient-grid"></div>
+    <div class="cursor-spotlight" id="cursorSpotlight"></div>
+  </div>
+
   <div class="app-layout">
     <!-- Minimalist Obsidian Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -158,7 +166,7 @@
 
           <!-- Floating Animated Dual-Tone Glow Prompt Box (Centerpiece) -->
           <div class="prompt-box-wrapper" id="promptBoxWrapper">
-            <div class="aura-glow-wrapper">
+            <div class="aura-glow-wrapper" id="auraGlowWrapper">
               <div class="prompt-box-inner">
                 <form id="chatForm" class="prompt-form">
                   <textarea id="userInput" placeholder="How can I help you?" rows="1" autocomplete="off" spellcheck="false"></textarea>
