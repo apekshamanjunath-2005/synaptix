@@ -130,15 +130,36 @@ class FirestoreService:
         import firebase_admin
         from firebase_admin import credentials, firestore
 
+        PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
         cred_path = self.settings.FIREBASE_CREDENTIALS_PATH
-        if cred_path and os.path.exists(cred_path):
+        resolved_cred = None
+
+        if cred_path:
+            p = Path(cred_path)
+            if p.is_file():
+                resolved_cred = str(p.resolve())
+            elif (PROJECT_ROOT / cred_path).is_file():
+                resolved_cred = str((PROJECT_ROOT / cred_path).resolve())
+
+        # Also auto-detect standard credential files in project root
+        if not resolved_cred:
+            for candidate in ["firebase-key.json", "firebase-key.json.json", "serviceAccountKey.json"]:
+                cp = PROJECT_ROOT / candidate
+                if cp.is_file():
+                    resolved_cred = str(cp.resolve())
+                    break
+
+        if resolved_cred:
             try:
                 if not firebase_admin._apps:
-                    cred = credentials.Certificate(cred_path)
-                    firebase_admin.initialize_app(cred, {"projectId": self.settings.FIREBASE_PROJECT_ID})
+                    cred = credentials.Certificate(resolved_cred)
+                    project_id = self.settings.FIREBASE_PROJECT_ID
+                    init_opts = {"projectId": project_id} if project_id else {}
+                    firebase_admin.initialize_app(cred, init_opts)
                 self.client = firestore.client()
                 self.is_live_firebase = True
-                logger.info("✅ Connected to Live Firebase Firestore (Spark Plan - ₹0)")
+                logger.info("✅ Connected to Live Firebase Firestore (Project: %s, File: %s)",
+                            self.settings.FIREBASE_PROJECT_ID or "Default", Path(resolved_cred).name)
                 return
             except Exception as e:
                 logger.error("Failed to connect to Live Firebase with credentials: %s", e)

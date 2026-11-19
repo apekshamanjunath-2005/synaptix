@@ -10,6 +10,10 @@ env/
 credentials.json
 serviceAccountKey.json
 firebase-credentials.json
+firebase-key.json
+firebase-key.json.json
+*firebase*.json
+*serviceAccount*.json
 .usage_cache.json
 .firestore_local.json
 .calendar_local.json
