@@ -171,8 +171,9 @@ class MultiAgentOrchestrator:
 ╚══════════════════════════════════════════════════════╝
 ```
 
-🌤️ **WEATHER FORECAST**
-• **{weather_data['condition']}**, {weather_data['temperature_c']}°C (Feels like {weather_data['feels_like_c']}°C). Ideal for productivity.
+🌤️ **WEATHER & ACTIVITY OUTLOOK**
+• **{weather_data.get('condition', 'Clear')}**, {weather_data.get('temperature_c', 24.0)}°C (Feels like {weather_data.get('feels_like_c', 24.0)}°C, Humidity {weather_data.get('humidity_pct', 50)}%, Wind {weather_data.get('wind_kmh', 10.0)} km/h).
+• {weather_data.get('activity_recommendation', 'Mild conditions favorable for outdoor breaks and desk productivity.')}
 
 📅 **CALENDAR EVENTS**
 {chr(10).join(events_lines) if events_lines else "• No scheduled meetings — full day available for focused deep work."}

@@ -48,6 +48,8 @@ def make_request(url, method="GET", data=None, headers=None):
     """Helper for real HTTP calls using standard library urllib."""
     if headers is None:
         headers = {}
+    if data is not None and "Content-Type" not in headers:
+        headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:

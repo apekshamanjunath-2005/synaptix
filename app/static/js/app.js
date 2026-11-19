@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
       if (targetTab === 'calendar') loadCalendarEvents();
+      if (targetTab === 'planner') loadWeather();
     });
   });
 
@@ -126,9 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.integrations_status) {
         const i = data.integrations_status;
         if (telGemini) telGemini.textContent = i.gemini_configured ? 'Google ADK + Gemini 2.5 Flash ✅' : 'Google ADK Active (₹0 Local Mode) ✅';
-        if (telFirestore) telFirestore.textContent = i.firebase_configured ? 'Connected ✅' : 'Milestone 4 (Pending)';
-        if (telCalendar) telCalendar.textContent = i.google_calendar_configured ? 'Active ✅' : 'Milestone 5 (Pending)';
-        if (telWeather) telWeather.textContent = i.weather_configured ? 'Active ✅' : 'Milestone 6 (Pending)';
+        if (telFirestore) telFirestore.textContent = i.firebase_configured ? 'Firestore Live (Firebase Spark) ✅' : 'Firestore Local Engine (₹0 Safe) ✅';
+        if (telCalendar) telCalendar.textContent = i.google_calendar_configured ? 'Google Calendar Live API ✅' : 'Calendar MCP Engine (₹0 Safe) ✅';
+        if (telWeather) telWeather.textContent = i.weather_configured ? 'OpenWeatherMap Live API ✅' : 'Weather Provider (₹0 Safe) ✅';
       }
     } catch (err) {
       statusText.textContent = 'Backend Offline';
@@ -611,8 +612,91 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 7. Weather Integration (Milestone 6)
+  const weatherForm = document.getElementById('weatherForm');
+  const weatherCityInput = document.getElementById('weatherCityInput');
+  const weatherCityName = document.getElementById('weatherCityName');
+  const weatherCondition = document.getElementById('weatherCondition');
+  const weatherTemp = document.getElementById('weatherTemp');
+  const weatherFeelsLike = document.getElementById('weatherFeelsLike');
+  const weatherHumidity = document.getElementById('weatherHumidity');
+  const weatherWind = document.getElementById('weatherWind');
+  const weatherOutdoorBadge = document.getElementById('weatherOutdoorBadge');
+  const weatherSourceBadge = document.getElementById('weatherSourceBadge');
+  const weatherRecommendationText = document.getElementById('weatherRecommendationText');
+  const planTodayBtn = document.getElementById('planTodayBtn');
+  const planTomorrowBtn = document.getElementById('planTomorrowBtn');
+
+  async function loadWeather(city = null) {
+    const targetCity = city || (weatherCityInput ? weatherCityInput.value.trim() : 'Bengaluru');
+    try {
+      const resp = await fetch(`/api/weather?city=${encodeURIComponent(targetCity)}`);
+      if (!resp.ok) throw new Error('Weather fetch returned non-200');
+      const data = await resp.json();
+
+      if (weatherCityName) weatherCityName.textContent = data.city;
+      if (weatherCondition) weatherCondition.textContent = data.condition;
+      if (weatherTemp) weatherTemp.textContent = `${data.temperature_c}°C`;
+      if (weatherFeelsLike) weatherFeelsLike.textContent = `Feels like ${data.feels_like_c}°C`;
+      if (weatherHumidity) weatherHumidity.textContent = `${data.humidity_pct}%`;
+      if (weatherWind) weatherWind.textContent = `${data.wind_kmh} km/h`;
+
+      if (weatherOutdoorBadge) {
+        if (data.suitable_for_outdoor) {
+          weatherOutdoorBadge.textContent = '✅ Favorable Outdoors';
+          weatherOutdoorBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+          weatherOutdoorBadge.style.color = '#34d399';
+        } else {
+          weatherOutdoorBadge.textContent = '⚠️ Indoor Focus Recommended';
+          weatherOutdoorBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+          weatherOutdoorBadge.style.color = '#fbbf24';
+        }
+      }
+
+      if (weatherSourceBadge) {
+        weatherSourceBadge.textContent = data.live_api_active ? 'Live OpenWeatherMap API' : 'Zero-Cost Fallback Engine';
+      }
+
+      if (weatherRecommendationText) {
+        weatherRecommendationText.textContent = data.activity_recommendation;
+      }
+    } catch (err) {
+      if (weatherCondition) weatherCondition.textContent = 'Weather Unavailable';
+      if (weatherRecommendationText) weatherRecommendationText.textContent = 'Could not retrieve weather: ' + err.message;
+    }
+  }
+
+  if (weatherForm) {
+    weatherForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      loadWeather(weatherCityInput.value.trim());
+    });
+  }
+
+  function triggerPlanPrompt(promptText) {
+    const chatTabBtn = document.querySelector('.nav-item[data-tab="chat"]');
+    if (chatTabBtn) chatTabBtn.click();
+    userInput.value = promptText;
+    chatForm.dispatchEvent(new Event('submit'));
+  }
+
+  if (planTodayBtn) {
+    planTodayBtn.addEventListener('click', () => {
+      triggerPlanPrompt('Plan my day today based on my pending tasks, calendar events, and weather.');
+    });
+  }
+
+  if (planTomorrowBtn) {
+    planTomorrowBtn.addEventListener('click', () => {
+      triggerPlanPrompt('Plan my day tomorrow based on my pending tasks, calendar events, and weather.');
+    });
+  }
+
   // Preload calendar events
   loadCalendarEvents();
+
+  // Preload weather
+  loadWeather();
 
   // Preload tasks and notes
   loadTasks();

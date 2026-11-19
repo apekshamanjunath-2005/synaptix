@@ -335,25 +335,55 @@ def calendar_delete_event(event_id: str) -> str:
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# 4. SMART DAY PLANNER AGENT TOOLS
+# 4. SMART DAY PLANNER AGENT TOOLS (Connected to Weather Tool & Dates)
 # ════════════════════════════════════════════════════════════════════════════════
 
+from app.tools.weather_tool import weather_tool
+
+
 def get_today_date() -> str:
+    """
+    Get today's date formatted as YYYY-MM-DD.
+
+    Returns:
+        Date string (YYYY-MM-DD).
+    """
     return date.today().strftime("%Y-%m-%d")
 
 
 def get_tomorrow_date() -> str:
+    """
+    Get tomorrow's date formatted as YYYY-MM-DD.
+
+    Returns:
+        Date string (YYYY-MM-DD).
+    """
     return (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def get_current_weather(city: str = "Bengaluru") -> str:
-    weather_info = {
-        "city": city,
-        "condition": "Partly Cloudy",
-        "temperature_c": 24.5,
-        "feels_like_c": 25.0,
-        "humidity_pct": 58,
-        "wind_kmh": 12.0,
-        "suitable_for_outdoor": True,
-    }
-    return json.dumps(weather_info)
+    """
+    Retrieve live weather conditions, temperature, and outdoor activity recommendations.
+    Uses OpenWeatherMap API when configured, or reliable zero-cost fallback.
+
+    Args:
+        city: City name to look up weather for (default is Bengaluru).
+
+    Returns:
+        JSON string containing condition, temperature_c, feels_like_c, humidity_pct,
+        wind_kmh, suitable_for_outdoor (bool), and activity_recommendation.
+    """
+    try:
+        weather_info = weather_tool.get_weather_sync(city=city)
+        return json.dumps(weather_info)
+    except Exception as e:
+        logger.error("Error retrieving weather for %s: %s", city, e)
+        return json.dumps({
+            "city": city,
+            "condition": "Clear",
+            "temperature_c": 24.0,
+            "suitable_for_outdoor": True,
+            "activity_recommendation": "Weather data currently unavailable; assuming mild conditions.",
+            "error": str(e)
+        })
+
