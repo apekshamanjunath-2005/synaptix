@@ -17,6 +17,7 @@ from app.api.tasks import router as tasks_router
 from app.api.notes import router as notes_router
 from app.api.calendar import router as calendar_router
 from app.api.weather import router as weather_router
+from app.api.planner import router as planner_router
 from app.config import get_settings
 
 # Configure Logging
@@ -70,6 +71,7 @@ app.include_router(tasks_router)
 app.include_router(notes_router)
 app.include_router(calendar_router)
 app.include_router(weather_router)
+app.include_router(planner_router)
 
 # Mount Static Files
 STATIC_DIR = Path(__file__).resolve().parent / "static"

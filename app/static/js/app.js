@@ -93,7 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
       if (targetTab === 'calendar') loadCalendarEvents();
-      if (targetTab === 'planner') loadWeather();
+      if (targetTab === 'planner') {
+        loadWeather();
+        loadTimetable();
+      }
     });
   });
 
@@ -692,11 +695,69 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 8. Timetable Synthesis (Milestone 7)
+  const timetableContainer = document.getElementById('timetableContainer');
+  const timetableStatusBadge = document.getElementById('timetableStatusBadge');
+
+  async function loadTimetable(targetDate = null) {
+    if (!timetableContainer) return;
+    try {
+      const payload = {};
+      if (targetDate) payload.target_date = targetDate;
+      const resp = await fetch('/api/planner/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error('Planner fetch failed');
+      const data = await resp.json();
+
+      if (timetableStatusBadge) {
+        timetableStatusBadge.textContent = `${data.scheduled_events_count} Meeting(s) • ${data.pending_tasks_count} Pending Task(s)`;
+      }
+
+      const typeColors = {
+        focus: { bg: 'rgba(16, 185, 129, 0.1)', border: '#10b981', badge: 'Focus Block', badgeBg: 'rgba(16, 185, 129, 0.2)', badgeColor: '#34d399' },
+        meeting: { bg: 'rgba(99, 102, 241, 0.1)', border: '#6366f1', badge: 'Meeting (MCP)', badgeBg: 'rgba(99, 102, 241, 0.2)', badgeColor: '#818cf8' },
+        break: { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b', badge: 'Break / Lunch', badgeBg: 'rgba(245, 158, 11, 0.2)', badgeColor: '#fbbf24' },
+        wrapup: { bg: 'rgba(148, 163, 184, 0.1)', border: '#94a3b8', badge: 'Wrap-up', badgeBg: 'rgba(148, 163, 184, 0.2)', badgeColor: '#cbd5e1' }
+      };
+
+      if (!data.timetable || data.timetable.length === 0) {
+        timetableContainer.innerHTML = '<p style="color: var(--text-muted);">No blocks generated for this day.</p>';
+        return;
+      }
+
+      timetableContainer.innerHTML = data.timetable.map(block => {
+        const style = typeColors[block.activity_type] || typeColors.focus;
+        return `
+          <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; background: ${style.bg}; border-left: 3px solid ${style.border};">
+            <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem; min-width: 105px; color: #fff;">
+              ${block.time_range}
+            </div>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="color: #fff; font-size: 0.95rem;">${block.title}</strong>
+                <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: ${style.badgeBg}; color: ${style.badgeColor}; font-weight: 600;">${style.badge}</span>
+              </div>
+              <p style="margin: 0; font-size: 0.82rem; color: var(--text-secondary);">${block.description}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      timetableContainer.innerHTML = `<p style="color: #ef4444;">Error loading timetable: ${err.message}</p>`;
+    }
+  }
+
   // Preload calendar events
   loadCalendarEvents();
 
   // Preload weather
   loadWeather();
+
+  // Preload timetable
+  loadTimetable();
 
   // Preload tasks and notes
   loadTasks();

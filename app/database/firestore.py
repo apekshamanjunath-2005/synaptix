@@ -237,6 +237,8 @@ class FirestoreService:
 
     def delete_task(self, task_id: str) -> bool:
         """Delete a task document from Firestore."""
+        if isinstance(task_id, dict):
+            task_id = str(task_id.get("id", ""))
         doc_ref = self.client.collection("tasks").document(task_id)
         doc = doc_ref.get()
         if not doc or not doc.exists:
@@ -302,6 +304,8 @@ class FirestoreService:
 
     def delete_note(self, note_id: str) -> bool:
         """Delete a note document by ID."""
+        if isinstance(note_id, dict):
+            note_id = str(note_id.get("id", ""))
         doc_ref = self.client.collection("notes").document(note_id)
         doc = doc_ref.get()
         if doc and doc.exists:
