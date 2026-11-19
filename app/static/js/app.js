@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
+      if (targetTab === 'calendar') loadCalendarEvents();
     });
   });
 
@@ -497,6 +498,121 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 300);
     });
   }
+
+  // 9. Calendar MCP Management Functions
+  const calendarEventsContainer = document.getElementById('calendarEventsContainer');
+  const createEventForm = document.getElementById('createEventForm');
+  const checkConflictForm = document.getElementById('checkConflictForm');
+  const calendarFilterDate = document.getElementById('calendarFilterDate');
+  const conflictStatusBadge = document.getElementById('conflictStatusBadge');
+  const conflictResultText = document.getElementById('conflictResultText');
+
+  async function loadCalendarEvents(dateStr = '') {
+    if (!calendarEventsContainer) return;
+    try {
+      const url = dateStr ? `/api/calendar/events?date=${encodeURIComponent(dateStr)}` : '/api/calendar/events';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      const events = data.events || [];
+
+      if (events.length === 0) {
+        calendarEventsContainer.innerHTML = '<p style="color: var(--text-muted); padding: 12px 0;">No events scheduled for this date.</p>';
+        return;
+      }
+
+      calendarEventsContainer.innerHTML = events.map(e => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: #fff;">
+              ${e.summary}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+              ⏱️ ${e.start_time.replace('T', ' ')} → ${e.end_time.replace('T', ' ')} ${e.location ? `• 📍 ${e.location}` : ''}
+            </div>
+            ${e.description ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">${e.description}</div>` : ''}
+          </div>
+          <button onclick="deleteCalendarEventItem('${e.id}')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(239,68,68,0.2); color: #f87171; cursor: pointer;">✕ Delete</button>
+        </div>
+      `).join('');
+    } catch (err) {
+      calendarEventsContainer.innerHTML = `<p style="color: #ef4444;">Failed to load events: ${err.message}</p>`;
+    }
+  }
+
+  window.deleteCalendarEventItem = async (eventId) => {
+    if (!confirm('Cancel/Delete this calendar event?')) return;
+    try {
+      await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE' });
+      loadCalendarEvents();
+    } catch (e) {
+      alert('Error deleting calendar event');
+    }
+  };
+
+  if (createEventForm) {
+    createEventForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const summary = document.getElementById('newEventSummary').value.trim();
+      const startTime = document.getElementById('newEventStart').value;
+      const endTime = document.getElementById('newEventEnd').value;
+      const location = document.getElementById('newEventLocation').value.trim();
+      if (!summary || !startTime || !endTime) return;
+
+      try {
+        await fetch('/api/calendar/events', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ summary, start_time: startTime, end_time: endTime, location }),
+        });
+        document.getElementById('newEventSummary').value = '';
+        document.getElementById('newEventLocation').value = '';
+        loadCalendarEvents();
+      } catch (err) {
+        alert('Failed to schedule event: ' + err.message);
+      }
+    });
+  }
+
+  if (checkConflictForm) {
+    checkConflictForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('checkStart').value;
+      const end = document.getElementById('checkEnd').value;
+      if (!start || !end) return;
+
+      try {
+        const resp = await fetch('/api/calendar/check-availability', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ start_time: start, end_time: end }),
+        });
+        const data = await resp.json();
+        if (data.available) {
+          conflictStatusBadge.textContent = '✅ Free / No Conflict';
+          conflictStatusBadge.style.background = 'rgba(16,185,129,0.2)';
+          conflictStatusBadge.style.color = '#34d399';
+          conflictResultText.innerHTML = `Great! Timeslot from <strong>${start}</strong> to <strong>${end}</strong> is clear.`;
+        } else {
+          conflictStatusBadge.textContent = `⚠️ ${data.conflicts_count} Conflict(s) Detected`;
+          conflictStatusBadge.style.background = 'rgba(239,68,68,0.2)';
+          conflictStatusBadge.style.color = '#f87171';
+          const confTitles = data.conflicting_events.map(c => `• "${c.summary}" (${c.start_time.slice(11,16)} - ${c.end_time.slice(11,16)})`).join('<br>');
+          conflictResultText.innerHTML = `Conflict detected with:<br>${confTitles}`;
+        }
+      } catch (err) {
+        conflictResultText.textContent = 'Error checking availability: ' + err.message;
+      }
+    });
+  }
+
+  if (calendarFilterDate) {
+    calendarFilterDate.addEventListener('change', (e) => {
+      loadCalendarEvents(e.target.value);
+    });
+  }
+
+  // Preload calendar events
+  loadCalendarEvents();
 
   // Preload tasks and notes
   loadTasks();

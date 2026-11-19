@@ -202,19 +202,10 @@ def note_delete(note_id: str) -> str:
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# 3. CALENDAR AGENT TOOLS (In-memory store, connected via MCP in Milestone 5)
+# 3. CALENDAR AGENT TOOLS (Connected to Calendar MCP Provider)
 # ════════════════════════════════════════════════════════════════════════════════
 
-CALENDAR_DB: Dict[str, Dict[str, Any]] = {
-    "cal-1": {
-        "id": "cal-1",
-        "summary": "AI Engineering Team Sync",
-        "start_time": f"{date.today().strftime('%Y-%m-%d')}T10:00:00",
-        "end_time": f"{date.today().strftime('%Y-%m-%d')}T11:00:00",
-        "description": "Discuss Synaptix multi-agent orchestration roadmap.",
-        "location": "Google Meet",
-    }
-}
+from app.tools.calendar_mcp import calendar_mcp
 
 
 def calendar_create_event(
@@ -224,38 +215,123 @@ def calendar_create_event(
     description: Optional[str] = "",
     location: Optional[str] = ""
 ) -> str:
-    import uuid
-    event_id = f"event-{uuid.uuid4().hex[:6]}"
-    event_record = {
-        "id": event_id,
-        "summary": summary,
-        "start_time": start_time,
-        "end_time": end_time,
-        "description": description or "",
-        "location": location or "",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    CALENDAR_DB[event_id] = event_record
-    return json.dumps({"success": True, "action": "scheduled", "event": event_record})
+    """
+    Schedule an event on the user's calendar via Calendar MCP.
+
+    Args:
+        summary: Event title or name.
+        start_time: Start datetime in ISO 8601 (YYYY-MM-DDTHH:MM:SS).
+        end_time: End datetime in ISO 8601 (YYYY-MM-DDTHH:MM:SS).
+        description: Agenda or details.
+        location: Meeting link or physical address.
+
+    Returns:
+        JSON string confirming event creation.
+    """
+    try:
+        event_record = calendar_mcp.create_event(
+            summary=summary,
+            start_time=start_time,
+            end_time=end_time,
+            description=description or "",
+            location=location or ""
+        )
+        return json.dumps({"success": True, "action": "scheduled", "event": event_record})
+    except Exception as e:
+        logger.error("Error creating calendar event via MCP: %s", e)
+        return json.dumps({"success": False, "error": str(e)})
 
 
 def calendar_list_events(date_str: Optional[str] = None) -> str:
-    target = date_str or date.today().strftime("%Y-%m-%d")
-    matches = [e for e in CALENDAR_DB.values() if e["start_time"].startswith(target)]
-    return json.dumps({"count": len(matches), "date": target, "events": matches})
+    """
+    Fetch calendar events for a specific date via Calendar MCP.
+
+    Args:
+        date_str: Target date in YYYY-MM-DD format (defaults to today).
+
+    Returns:
+        JSON string with scheduled events.
+    """
+    try:
+        events = calendar_mcp.list_events(date_str=date_str)
+        return json.dumps({"count": len(events), "date": date_str or date.today().strftime("%Y-%m-%d"), "events": events})
+    except Exception as e:
+        logger.error("Error listing calendar events via MCP: %s", e)
+        return json.dumps({"count": 0, "events": [], "error": str(e)})
 
 
 def calendar_check_availability(start_time: str, end_time: str) -> str:
-    conflicts = [
-        e for e in CALENDAR_DB.values()
-        if e["start_time"] < end_time and e["end_time"] > start_time
-    ]
-    return json.dumps({
-        "available": len(conflicts) == 0,
-        "start_time": start_time,
-        "end_time": end_time,
-        "conflicts": conflicts
-    })
+    """
+    Check if a proposed timeslot has meeting conflicts via Calendar MCP.
+
+    Args:
+        start_time: Proposed start time (ISO 8601 string).
+        end_time: Proposed end time (ISO 8601 string).
+
+    Returns:
+        JSON string with availability boolean and conflicting events list.
+    """
+    try:
+        result = calendar_mcp.check_availability(start_time=start_time, end_time=end_time)
+        return json.dumps(result)
+    except Exception as e:
+        logger.error("Error checking availability via MCP: %s", e)
+        return json.dumps({"available": False, "error": str(e)})
+
+
+def calendar_update_event(
+    event_id: str,
+    summary: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    description: Optional[str] = None,
+    location: Optional[str] = None
+) -> str:
+    """
+    Update an existing calendar event via Calendar MCP.
+
+    Args:
+        event_id: ID or summary of event to update.
+        summary: New event title.
+        start_time: New start time.
+        end_time: New end time.
+        description: New description.
+        location: New location.
+
+    Returns:
+        JSON string confirming update.
+    """
+    try:
+        updated = calendar_mcp.update_event(
+            event_id=event_id,
+            summary=summary,
+            start_time=start_time,
+            end_time=end_time,
+            description=description,
+            location=location
+        )
+        if not updated:
+            return json.dumps({"success": False, "error": f"Event '{event_id}' not found."})
+        return json.dumps({"success": True, "action": "updated", "event": updated})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
+
+
+def calendar_delete_event(event_id: str) -> str:
+    """
+    Delete a calendar event via Calendar MCP.
+
+    Args:
+        event_id: ID or summary of the event to delete.
+
+    Returns:
+        JSON string confirming deletion.
+    """
+    try:
+        success = calendar_mcp.delete_event(event_id)
+        return json.dumps({"success": success, "event_id": event_id})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
 
 
 # ════════════════════════════════════════════════════════════════════════════════

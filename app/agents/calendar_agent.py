@@ -10,6 +10,8 @@ from app.agents.tools import (
     calendar_create_event,
     calendar_list_events,
     calendar_check_availability,
+    calendar_update_event,
+    calendar_delete_event,
     get_today_date,
     get_tomorrow_date,
 )
@@ -41,6 +43,8 @@ calendar_agent = LlmAgent(
         FunctionTool(func=calendar_create_event),
         FunctionTool(func=calendar_list_events),
         FunctionTool(func=calendar_check_availability),
+        FunctionTool(func=calendar_update_event),
+        FunctionTool(func=calendar_delete_event),
         FunctionTool(func=get_today_date),
         FunctionTool(func=get_tomorrow_date),
     ],

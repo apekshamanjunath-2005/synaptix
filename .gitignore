@@ -12,6 +12,7 @@ serviceAccountKey.json
 firebase-credentials.json
 .usage_cache.json
 .firestore_local.json
+.calendar_local.json
 *.cache
 
 

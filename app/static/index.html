@@ -208,9 +208,38 @@
 
       <!-- Tab 4: Calendar View -->
       <section class="tab-pane" id="tab-calendar">
-        <div class="card info-box">
-          <h3>Google Calendar MCP Integration</h3>
-          <p>Connecting in Milestone 5 via <strong>Model Context Protocol (MCP)</strong> using your official Google OAuth credentials for ₹0 calendar event discovery and conflict prevention.</p>
+        <div class="card" style="margin-bottom: 20px;">
+          <h3>Schedule Event (Calendar MCP)</h3>
+          <form id="createEventForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="newEventSummary" placeholder="Meeting title / agenda..." required style="flex: 2; min-width: 220px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <input type="datetime-local" id="newEventStart" required style="flex: 1; min-width: 170px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <input type="datetime-local" id="newEventEnd" required style="flex: 1; min-width: 170px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <input type="text" id="newEventLocation" placeholder="Location or Link (e.g. Google Meet)" style="flex: 1; min-width: 160px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <button type="submit" class="send-btn" style="width: auto; padding: 0 18px; border-radius: 8px; font-weight: 600;">📅 Book Event</button>
+          </form>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px; background: rgba(30, 41, 59, 0.4);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0;">⚡ MCP Timeslot Conflict Checker</h3>
+            <span id="conflictStatusBadge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 12px; background: rgba(16,185,129,0.15); color: #34d399;">Ready</span>
+          </div>
+          <form id="checkConflictForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="datetime-local" id="checkStart" required style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <input type="datetime-local" id="checkEnd" required style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <button type="submit" style="padding: 8px 16px; border-radius: 6px; border: none; background: var(--accent-primary); color: #fff; cursor: pointer; font-weight: 500;">Check Availability</button>
+          </form>
+          <div id="conflictResultText" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary);"></div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="margin: 0;">Scheduled Commitments</h3>
+            <input type="date" id="calendarFilterDate" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; font-size: 0.82rem;">
+          </div>
+          <div id="calendarEventsContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <p style="color: var(--text-muted);">Loading calendar events from MCP...</p>
+          </div>
         </div>
       </section>
 
