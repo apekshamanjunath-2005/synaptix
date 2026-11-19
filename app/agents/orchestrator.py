@@ -238,6 +238,23 @@ class MultiAgentOrchestrator:
 • Dedicate 09:00 - 11:30 for high-priority task completion before lunch.
 • Block 30 minutes in the afternoon for reviewing and capturing project notes."""
 
+            # Automatically persist generated plan in Firestore day_plans collection
+            try:
+                from app.database.firestore import firestore_service
+                firestore_service.save_day_plan(
+                    user_id=uid,
+                    date_str=target_date,
+                    plan_data={
+                        "plan": reply,
+                        "formatted_markdown": reply,
+                        "weather_summary": weather_data,
+                        "pending_tasks_count": len(tasks_data.get("tasks", [])),
+                        "scheduled_events_count": len(events_data.get("events", [])),
+                    }
+                )
+            except Exception as save_err:
+                logger.warning("Failed to auto-persist day plan: %s", save_err)
+
         # ROUTING RULE 2: Email Intent (Human-in-the-Loop Draft -> Approve -> Send)
         elif any(kw in lower for kw in ["email", "mail", "draft", "compose", "approve and send", "approve draft", "send the draft"]):
             activated_agent = "GmailAgent"

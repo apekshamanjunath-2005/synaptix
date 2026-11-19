@@ -1,13 +1,14 @@
 """
-Smart Day Planner API Router for Synaptix (Milestone 7)
+Smart Day Planner API Router for Synaptix (Milestone 7 & Firestore Persistence)
 Coordinates TaskAgent (Firestore), CalendarAgent (MCP), and Weather Tool
 to synthesize conflict-free, prioritized daily timetables.
+Persists generated daily plans in Firebase Firestore ('day_plans' collection) scoped by user_id.
 """
 
 import json
 from datetime import date, timedelta
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.agents.tools import (
@@ -17,6 +18,9 @@ from app.agents.tools import (
     get_today_date,
     get_tomorrow_date,
 )
+from app.database.firestore import firestore_service
+from app.api.auth import get_optional_user
+from app.core.context import current_user_id
 
 router = APIRouter(prefix="/api/planner", tags=["Smart Day Planner"])
 
@@ -49,13 +53,23 @@ class PlanResponse(BaseModel):
     timetable: List[TimetableBlock]
     productivity_insights: List[str]
     formatted_markdown: str
+    updated_at: Optional[str] = None
+    saved: Optional[bool] = True
 
 
-def synthesize_daily_plan(target_date: str, city: str = "Bengaluru") -> PlanResponse:
+def synthesize_daily_plan(
+    target_date: str,
+    city: str = "Bengaluru",
+    user_id: Optional[str] = None
+) -> PlanResponse:
     """
     Core synthesis engine combining Firestore pending tasks, MCP calendar events,
     and weather metrics into an intelligent timetable.
+    Automatically persists the synthesized plan in Firestore ('day_plans' collection).
     """
+    effective_uid = user_id or current_user_id.get("default_user")
+    current_user_id.set(effective_uid)
+
     # 1. Fetch domain context
     raw_tasks = json.loads(task_list(status="pending"))
     raw_events = json.loads(calendar_list_events(date_str=target_date))
@@ -185,6 +199,26 @@ def synthesize_daily_plan(target_date: str, city: str = "Bengaluru") -> PlanResp
 • {insights[2]}
 """
 
+    # 5. Persist into Firestore 'day_plans' collection
+    plan_dict = {
+        "target_date": target_date,
+        "weather": weather,
+        "scheduled_events_count": len(events),
+        "pending_tasks_count": len(sorted_tasks),
+        "scheduled_events": events,
+        "prioritized_tasks": sorted_tasks,
+        "timetable": [b.dict() if hasattr(b, "dict") else b.model_dump() for b in timetable],
+        "productivity_insights": insights,
+        "formatted_markdown": markdown,
+        "plan": markdown,
+    }
+
+    saved_doc = firestore_service.save_day_plan(
+        user_id=effective_uid,
+        date_str=target_date,
+        plan_data=plan_dict
+    )
+
     return PlanResponse(
         target_date=target_date,
         weather=weather,
@@ -194,15 +228,65 @@ def synthesize_daily_plan(target_date: str, city: str = "Bengaluru") -> PlanResp
         prioritized_tasks=sorted_tasks,
         timetable=timetable,
         productivity_insights=insights,
-        formatted_markdown=markdown
+        formatted_markdown=markdown,
+        updated_at=saved_doc.get("updated_at"),
+        saved=True,
     )
 
 
 @router.post("/generate", response_model=PlanResponse, status_code=status.HTTP_200_OK)
-async def generate_day_plan(req: Optional[PlanRequest] = None):
+async def generate_day_plan(
+    req: Optional[PlanRequest] = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+):
     """
     Generate an optimized daily schedule synthesizing Firestore tasks, MCP calendar, and weather.
+    Automatically saves the result in Firestore 'day_plans' scoped to current user.
     """
     target_date = (req.target_date if req and req.target_date else None) or get_today_date()
     city = (req.city if req and req.city else None) or "Bengaluru"
-    return synthesize_daily_plan(target_date=target_date, city=city)
+    uid = current_user.get("user_id", "default_user") if current_user else "default_user"
+    return synthesize_daily_plan(target_date=target_date, city=city, user_id=uid)
+
+
+@router.get("/today")
+async def get_today_plan(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    """
+    Retrieve today's saved plan from Firestore without burning Gemini API calls.
+    """
+    uid = current_user.get("user_id", "default_user") if current_user else "default_user"
+    today_str = get_today_date()
+    plan = firestore_service.get_day_plan(user_id=uid, date_str=today_str)
+    if plan:
+        return {"success": True, "saved": True, "target_date": today_str, "plan": plan}
+    return {"success": False, "saved": False, "target_date": today_str, "message": "No saved plan found for today"}
+
+
+@router.get("")
+@router.get("/")
+async def get_saved_plan(
+    date: Optional[str] = Query(default=None, description="Date in YYYY-MM-DD format"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+):
+    """
+    Retrieve a saved plan from Firestore for a specific date (defaults to today).
+    """
+    uid = current_user.get("user_id", "default_user") if current_user else "default_user"
+    target_date = date or get_today_date()
+    plan = firestore_service.get_day_plan(user_id=uid, date_str=target_date)
+    if plan:
+        return {"success": True, "saved": True, "target_date": target_date, "plan": plan}
+    return {"success": False, "saved": False, "target_date": target_date, "message": f"No saved plan found for {target_date}"}
+
+
+@router.get("/history")
+async def get_plan_history(
+    limit: int = Query(default=7, ge=1, le=30),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+):
+    """
+    Retrieve user's recent saved plans from Firestore.
+    """
+    uid = current_user.get("user_id", "default_user") if current_user else "default_user"
+    plans = firestore_service.list_day_plans(user_id=uid, limit=limit)
+    return {"success": True, "count": len(plans), "plans": plans}

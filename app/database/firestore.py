@@ -104,7 +104,7 @@ class LocalFirestoreCollection:
 class LocalFirestoreClient:
     def __init__(self):
         self._lock = threading.Lock()
-        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}}
+        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}}
         self._load()
 
     def _load(self):
@@ -112,8 +112,8 @@ class LocalFirestoreClient:
             try:
                 data = json.loads(LOCAL_DB_FILE.read_text(encoding="utf-8"))
                 self._storage.update(data)
-                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes)",
-                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})))
+                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes, %d day_plans)",
+                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})))
             except Exception as e:
                 logger.warning("Could not read local Firestore cache: %s", e)
 
@@ -413,6 +413,99 @@ class FirestoreService:
             usage_tracker.record_tool_call("firestore")
             return doc.to_dict()
         return None
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # DAY PLANS REPOSITORY (Per-User Smart Day Plan Persistence)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    def save_day_plan(
+        self,
+        user_id: str,
+        date_str: str,
+        plan_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Upsert a day plan document in the 'day_plans' collection, keyed by '{user_id}_{date_str}'.
+        Ensures strict user scoping and persistence across reloads.
+        """
+        effective_uid = user_id or "default_user"
+        doc_id = f"{effective_uid}_{date_str}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        doc_payload = {
+            "id": doc_id,
+            "user_id": effective_uid,
+            "date": date_str,
+            "plan": plan_data.get("plan") or plan_data.get("formatted_markdown", ""),
+            "formatted_markdown": plan_data.get("formatted_markdown") or plan_data.get("plan", ""),
+            "timetable": plan_data.get("timetable", []),
+            "weather_summary": plan_data.get("weather_summary") or plan_data.get("weather", {}),
+            "pending_tasks_count": plan_data.get("pending_tasks_count", 0),
+            "scheduled_events_count": plan_data.get("scheduled_events_count", 0),
+            "productivity_insights": plan_data.get("productivity_insights", []),
+            "created_at": plan_data.get("created_at", now_iso),
+            "updated_at": now_iso,
+        }
+
+        self.client.collection("day_plans").document(doc_id).set(doc_payload)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Saved day plan for user %s on %s (doc: %s)", effective_uid, date_str, doc_id)
+        return doc_payload
+
+    def get_day_plan(self, user_id: str, date_str: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve saved day plan document for a specific user and date.
+        """
+        effective_uid = user_id or "default_user"
+        doc_id = f"{effective_uid}_{date_str}"
+        doc = self.client.collection("day_plans").document(doc_id).get()
+        if doc and doc.exists:
+            usage_tracker.record_tool_call("firestore")
+            return doc.to_dict()
+
+        # Fallback stream query if document ID differed
+        docs = self.client.collection("day_plans").stream()
+        for d in docs:
+            data = d.to_dict()
+            if data and data.get("user_id") == effective_uid and data.get("date") == date_str:
+                usage_tracker.record_tool_call("firestore")
+                return data
+        return None
+
+    def list_day_plans(self, user_id: str, limit: int = 7) -> List[Dict[str, Any]]:
+        """
+        Return recent saved day plans for the given user, ordered by date descending.
+        """
+        effective_uid = user_id or "default_user"
+        docs = self.client.collection("day_plans").stream()
+        plans = []
+        for d in docs:
+            data = d.to_dict()
+            if data and data.get("user_id") == effective_uid:
+                plans.append(data)
+
+        usage_tracker.record_tool_call("firestore")
+        sorted_plans = sorted(
+            plans,
+            key=lambda x: (x.get("date", ""), x.get("updated_at", "")),
+            reverse=True
+        )
+        return sorted_plans[:limit]
+
+    def delete_day_plan(self, user_id: str, date_str: str) -> bool:
+        """
+        Remove a day plan document for a specific user and date.
+        """
+        effective_uid = user_id or "default_user"
+        doc_id = f"{effective_uid}_{date_str}"
+        doc_ref = self.client.collection("day_plans").document(doc_id)
+        doc = doc_ref.get()
+        if doc and doc.exists:
+            doc_ref.delete()
+            usage_tracker.record_tool_call("firestore")
+            logger.info("Deleted day plan for user %s on %s", effective_uid, date_str)
+            return True
+        return False
 
 
 # Global singleton instance

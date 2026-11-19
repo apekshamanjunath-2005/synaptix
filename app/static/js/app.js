@@ -974,14 +974,121 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 14. SMART DAY PLANNER TIMETABLE
+  // 14. SMART DAY PLANNER TIMETABLE (Firestore Persisted)
   // ══════════════════════════════════════════════════════════════════════════
   const timetableContainer = document.getElementById('timetableContainer');
   const timetableStatusBadge = document.getElementById('timetableStatusBadge');
+  const planTimestamp = document.getElementById('planTimestamp');
+  const planSavedStatus = document.getElementById('planSavedStatus');
+  const regeneratePlanBtn = document.getElementById('regeneratePlanBtn');
+  const savedPlansSelect = document.getElementById('savedPlansSelect');
+  const planHistoryCount = document.getElementById('planHistoryCount');
 
-  async function loadTimetable(targetDate = null) {
+  function renderTimetableBlocks(data) {
     if (!timetableContainer) return;
+    latestPlanMarkdown = data.formatted_markdown || data.plan || '';
+
+    if (timetableStatusBadge) {
+      const meetings = data.scheduled_events_count !== undefined ? data.scheduled_events_count : (data.scheduled_events ? data.scheduled_events.length : 0);
+      const tasks = data.pending_tasks_count !== undefined ? data.pending_tasks_count : (data.prioritized_tasks ? data.prioritized_tasks.length : 0);
+      timetableStatusBadge.textContent = `${meetings} Meeting(s) • ${tasks} Task(s)`;
+    }
+
+    if (planTimestamp) {
+      const timeStr = data.updated_at
+        ? new Date(data.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Just now';
+      const dateStr = data.target_date || data.date || 'Today';
+      planTimestamp.textContent = `Saved at ${timeStr} (${dateStr})`;
+    }
+
+    if (planSavedStatus) {
+      planSavedStatus.textContent = '☁️ Firestore Persisted';
+      planSavedStatus.style.color = '#34d399';
+    }
+
+    const timetable = data.timetable || [];
+    if (!timetable || timetable.length === 0) {
+      // If plan is raw markdown/text
+      if (data.formatted_markdown || data.plan) {
+        timetableContainer.innerHTML = `
+          <div style="padding:14px;background:var(--bg-surface-elevated);border-radius:10px;font-size:0.86rem;line-height:1.5;white-space:pre-wrap;color:var(--text-primary);border:1px solid var(--border-subtle);">
+            ${formatMarkdown(data.formatted_markdown || data.plan)}
+          </div>
+        `;
+        return;
+      }
+      timetableContainer.innerHTML = '<p class="empty-state">No timetable blocks generated for this day.</p>';
+      return;
+    }
+
+    timetableContainer.innerHTML = timetable.map((block) => `
+      <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--bg-surface-elevated);border-left:3px solid #3b82f6;">
+        <div style="font-weight:700;font-family:monospace;font-size:0.88rem;min-width:96px;color:#93c5fd;">
+          ${block.time_range}
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <strong style="color:#fff;font-size:0.92rem;">${block.title}</strong>
+            <span class="status-chip highlight">${(block.activity_type || 'FOCUS').toUpperCase()}</span>
+          </div>
+          <p style="margin:0;font-size:0.8rem;color:var(--text-secondary);">${block.description}</p>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function loadPlanHistory() {
+    if (!savedPlansSelect) return;
     try {
+      const resp = await fetch('/api/planner/history?limit=10');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const plans = data.plans || [];
+
+      if (planHistoryCount) {
+        planHistoryCount.textContent = `${plans.length} saved plan(s) in Firestore`;
+      }
+
+      savedPlansSelect.innerHTML = '<option value="">Today\'s Saved Plan</option>';
+      plans.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.date;
+        const timePart = p.updated_at ? new Date(p.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        opt.textContent = `${p.date} (${timePart || 'Saved'})`;
+        savedPlansSelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.warn('Could not load plan history:', err);
+    }
+  }
+
+  async function loadTimetable(targetDate = null, forceGenerate = false) {
+    if (!timetableContainer) return;
+
+    // 1. Try to load saved plan from Firestore first (₹0 API cost)
+    if (!forceGenerate) {
+      try {
+        const queryUrl = targetDate ? `/api/planner?date=${encodeURIComponent(targetDate)}` : '/api/planner/today';
+        const getResp = await fetch(queryUrl);
+        if (getResp.ok) {
+          const res = await getResp.json();
+          if (res.saved && res.plan) {
+            renderTimetableBlocks(res.plan);
+            loadPlanHistory();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Saved plan lookup skipped:', err);
+      }
+    }
+
+    // 2. If not saved or explicitly regenerating: generate fresh & save in Firestore
+    try {
+      if (timetableContainer) {
+        timetableContainer.innerHTML = '<p class="empty-state">Synthesizing timetable & syncing with Firestore...</p>';
+      }
       const payload = {};
       if (targetDate) payload.target_date = targetDate;
       const resp = await fetch('/api/planner/generate', {
@@ -989,36 +1096,46 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error('Planner fetch failed');
+      if (!resp.ok) throw new Error('Planner synthesis failed');
       const data = await resp.json();
-      latestPlanMarkdown = data.formatted_markdown || '';
-
-      if (timetableStatusBadge) {
-        timetableStatusBadge.textContent = `${data.scheduled_events_count} Meeting(s) • ${data.pending_tasks_count} Task(s)`;
-      }
-
-      if (!data.timetable || data.timetable.length === 0) {
-        timetableContainer.innerHTML = '<p class="empty-state">No blocks generated for this day.</p>';
-        return;
-      }
-
-      timetableContainer.innerHTML = data.timetable.map((block) => `
-        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--bg-surface-elevated);border-left:3px solid #3b82f6;">
-          <div style="font-weight:700;font-family:monospace;font-size:0.88rem;min-width:96px;color:#93c5fd;">
-            ${block.time_range}
-          </div>
-          <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-              <strong style="color:#fff;font-size:0.92rem;">${block.title}</strong>
-              <span class="status-chip highlight">${block.activity_type.toUpperCase()}</span>
-            </div>
-            <p style="margin:0;font-size:0.8rem;color:var(--text-secondary);">${block.description}</p>
-          </div>
-        </div>
-      `).join('');
+      renderTimetableBlocks(data);
+      loadPlanHistory();
     } catch (err) {
       timetableContainer.innerHTML = `<p style="color:#ef4444;">Error loading timetable: ${err.message}</p>`;
     }
+  }
+
+  if (regeneratePlanBtn) {
+    regeneratePlanBtn.addEventListener('click', async () => {
+      const selectedDate = savedPlansSelect ? savedPlansSelect.value : null;
+      showToast('Regenerating daily plan...', 'info');
+      await loadTimetable(selectedDate, true);
+      showToast('Fresh plan synthesized & saved to Firestore!', 'success');
+    });
+  }
+
+  if (savedPlansSelect) {
+    savedPlansSelect.addEventListener('change', (e) => {
+      const chosenDate = e.target.value;
+      loadTimetable(chosenDate || null, false);
+    });
+  }
+
+  if (planTodayBtn) {
+    planTodayBtn.addEventListener('click', () => {
+      loadTimetable(null, true);
+      showToast('Generating today\'s plan...', 'info');
+    });
+  }
+
+  if (planTomorrowBtn) {
+    planTomorrowBtn.addEventListener('click', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      loadTimetable(tomorrowStr, true);
+      showToast('Generating tomorrow\'s plan...', 'info');
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════

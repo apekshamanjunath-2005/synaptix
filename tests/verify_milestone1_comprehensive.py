@@ -44,23 +44,29 @@ class LiveServer(threading.Thread):
         self.server.should_exit = True
 
 
-def make_request(url, method="GET", data=None, headers=None):
-    """Helper for real HTTP calls using standard library urllib."""
+def make_request(url, method="GET", data=None, headers=None, retries=3):
+    """Helper for real HTTP calls using standard library urllib with retry on Windows socket aborts."""
     if headers is None:
         headers = {}
     if data is not None and "Content-Type" not in headers:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return resp.status, json.loads(resp.read().decode()) if "json" in resp.headers.get("content-type", "") else resp.read().decode()
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
+    for attempt in range(retries):
         try:
-            body = json.loads(body)
-        except Exception:
-            pass
-        return e.code, body
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status, json.loads(resp.read().decode()) if "json" in resp.headers.get("content-type", "") else resp.read().decode()
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            try:
+                body = json.loads(body)
+            except Exception:
+                pass
+            return e.code, body
+        except (ConnectionAbortedError, ConnectionResetError, urllib.error.URLError) as net_err:
+            if attempt < retries - 1:
+                time.sleep(0.3)
+                continue
+            raise net_err
 
 
 def run_comprehensive_verification():
@@ -80,6 +86,7 @@ def run_comprehensive_verification():
                 break
         except Exception:
             pass
+    time.sleep(0.3)
 
     results = {}
 

@@ -22,6 +22,7 @@ TEST_SUITES = [
     ("Milestone 8 — UI & Glassmorphism Dashboard Experience", "tests/test_milestone8.py"),
     ("Gmail Agent — Human-in-the-Loop Email System", "tests/test_gmail_agent.py"),
     ("Multi-User OAuth — Google Login & Data Isolation", "tests/test_multi_user_oauth.py"),
+    ("Smart Day Plans — Firestore Persistence & Isolation", "tests/test_day_plans.py"),
 ]
 
 
