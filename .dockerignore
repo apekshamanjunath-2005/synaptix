@@ -1,0 +1,40 @@
+# Docker Ignore Rules for Synaptix
+.git
+.gitignore
+.venv
+venv
+ENV
+env
+
+# Secrets & Environment
+.env
+*.local
+credentials.json
+serviceAccountKey.json
+firebase-credentials.json
+.usage_cache.json
+.firestore_local.json
+.calendar_local.json
+
+# Reference Codebase
+reference_neuroflow/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Tests & Logs
+tests/
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
