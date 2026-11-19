@@ -23,14 +23,30 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
 
-    # Google Calendar & Gmail OAuth (synaptix-68373)
+    # Google OAuth 2.0 Web Login & Scopes (synaptix-68373)
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_ID: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_SECRET: Optional[str] = None
+    OAUTH_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
+    SESSION_SECRET_KEY: str = "synaptix-secret-session-key-change-in-production-123456789"
+    MOCK_MODE: bool = False
     GOOGLE_TOKEN_PATH: str = "token.json"
     GOOGLE_OAUTH_SCOPES: list[str] = [
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/gmail.compose",
     ]
+
+    @property
+    def effective_client_id(self) -> Optional[str]:
+        return self.GOOGLE_CLIENT_ID or self.GOOGLE_CALENDAR_CLIENT_ID
+
+    @property
+    def effective_client_secret(self) -> Optional[str]:
+        return self.GOOGLE_CLIENT_SECRET or self.GOOGLE_CALENDAR_CLIENT_SECRET
 
     # OpenWeatherMap API (Configured in Milestone 6)
     OPENWEATHERMAP_API_KEY: Optional[str] = None

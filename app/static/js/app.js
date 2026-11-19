@@ -825,6 +825,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // MULTI-USER GOOGLE AUTHENTICATION & PROFILE
+  // ══════════════════════════════════════════════════════════════════════════
+  const loginModal = document.getElementById('loginModal');
+  const userProfileCard = document.getElementById('userProfileCard');
+  const userAvatar = document.getElementById('userAvatar');
+  const userName = document.getElementById('userName');
+  const userEmail = document.getElementById('userEmail');
+  const guestLoginBtn = document.getElementById('guestLoginBtn');
+
+  async function checkAuth() {
+    try {
+      const res = await fetch('/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated) {
+          if (loginModal) loginModal.style.display = 'none';
+          if (userProfileCard) userProfileCard.style.display = 'flex';
+          if (userName) userName.textContent = data.name || 'User';
+          if (userEmail) userEmail.textContent = data.email || '';
+          if (userAvatar) {
+            if (data.picture) {
+              userAvatar.innerHTML = `<img src="${data.picture}" alt="${data.name || 'User'}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+            } else {
+              userAvatar.textContent = (data.name || data.email || 'U').charAt(0).toUpperCase();
+            }
+          }
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('Auth status check error:', err);
+    }
+
+    // Unauthenticated: show login modal
+    if (loginModal) loginModal.style.display = 'flex';
+    if (userProfileCard) userProfileCard.style.display = 'none';
+    return false;
+  }
+
+  if (guestLoginBtn) {
+    guestLoginBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/auth/guest', { method: 'POST' });
+        if (res.ok || res.redirected) {
+          showToast('Signed in as Guest (Offline ₹0)', 'success');
+          await checkAuth();
+          loadTasks();
+          loadNotes();
+          loadCalendarEvents();
+        }
+      } catch (e) {
+        showToast('Guest sign-in error: ' + e.message, 'error');
+      }
+    });
+  }
+
   // Preload calendar events
   loadCalendarEvents();
 
@@ -837,6 +894,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Preload tasks and notes
   loadTasks();
   loadNotes();
+
+  // Check auth state immediately
+  checkAuth();
 
   // Auto-resize textarea
   userInput.addEventListener('keydown', (e) => {

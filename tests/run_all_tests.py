@@ -21,17 +21,21 @@ TEST_SUITES = [
     ("Milestone 7 — Smart Day Planner Multi-Agent Synthesis", "tests/test_milestone7.py"),
     ("Milestone 8 — UI & Glassmorphism Dashboard Experience", "tests/test_milestone8.py"),
     ("Gmail Agent — Human-in-the-Loop Email System", "tests/test_gmail_agent.py"),
+    ("Multi-User OAuth — Google Login & Data Isolation", "tests/test_multi_user_oauth.py"),
 ]
 
 
 def run_master_test_suite():
     print("\n" + "█" * 70)
-    print(" 🚀 SYNAPTIX MASTER VALIDATION SUITE: ALL MILESTONES (1 — 8)")
+    print(" 🚀 SYNAPTIX MASTER VALIDATION SUITE: ALL MILESTONES + MULTI-USER OAUTH")
     print("█" * 70)
 
+    import os
     python_executable = sys.executable
     results = []
     total_start = time.time()
+    test_env = dict(os.environ)
+    test_env["MOCK_MODE"] = "true"
 
     for title, test_script in TEST_SUITES:
         print(f"\n▶ Executing: {title} ({test_script})...")
@@ -39,10 +43,11 @@ def run_master_test_suite():
         start_time = time.time()
         
         proc = subprocess.run(
-            [python_executable, str(script_path)],
+            [python_executable, "-u", str(script_path)],
             cwd=str(PROJECT_ROOT),
             capture_output=True,
-            text=True
+            text=True,
+            env=test_env
         )
         duration = round(time.time() - start_time, 2)
         

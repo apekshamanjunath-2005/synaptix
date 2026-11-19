@@ -4,10 +4,11 @@ Direct REST endpoints for notes retrieval, semantic search, creation, and deleti
 """
 
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.database.firestore import firestore_service
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/notes", tags=["Notes Management"])
 
@@ -21,23 +22,31 @@ class NoteCreateRequest(BaseModel):
 @router.get("")
 async def list_or_search_notes(
     query: Optional[str] = Query(default=None, description="Search term"),
-    limit: int = Query(default=20, ge=1, le=100)
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Retrieve or search notes stored in Firestore."""
+    """Retrieve or search notes stored in Firestore for the current user."""
+    uid = current_user.get("user_id")
+    filter_uid = uid if uid != "default_user" else None
     if query:
-        notes = firestore_service.search_notes(query)
+        notes = firestore_service.search_notes(query, user_id=filter_uid)
     else:
-        notes = firestore_service.get_notes(limit=limit)
+        notes = firestore_service.get_notes(limit=limit, user_id=filter_uid)
     return {"count": len(notes), "notes": notes}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_note(req: NoteCreateRequest):
-    """Save a new note in Firestore."""
+async def create_note(
+    req: NoteCreateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Save a new note in Firestore associated with the current user."""
+    uid = current_user.get("user_id", "default_user")
     note = firestore_service.add_note(
         content=req.content,
         title=req.title,
-        tags=req.tags
+        tags=req.tags,
+        user_id=uid
     )
     return {"success": True, "note": note}
 

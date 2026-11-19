@@ -15,6 +15,7 @@ from google.genai import types as genai_types
 from app.config import get_settings
 from app.core.usage_tracker import usage_tracker
 from app.agents.coordinator import coordinator_agent
+from app.agents.context import set_user_context, get_user_context
 from app.agents.tools import (
     task_create,
     task_list,
@@ -44,41 +45,51 @@ class MultiAgentOrchestrator:
         self.runner = InMemoryRunner(agent=coordinator_agent, app_name=APP_NAME)
         self.active_sessions: set = set()
 
-    async def _ensure_session(self, session_id: str) -> None:
+    async def _ensure_session(self, session_id: str, user_id: str = "default_user") -> None:
         """Create or verify ADK session existence."""
-        if session_id not in self.active_sessions:
+        session_key = f"{user_id}:{session_id}"
+        if session_key not in self.active_sessions:
             try:
                 await self.runner.session_service.create_session(
                     app_name=APP_NAME,
-                    user_id=USER_ID,
+                    user_id=user_id,
                     session_id=session_id
                 )
-                self.active_sessions.add(session_id)
+                self.active_sessions.add(session_key)
             except Exception as e:
                 # Session may already exist
                 logger.debug("Session check: %s", e)
-                self.active_sessions.add(session_id)
+                self.active_sessions.add(session_key)
 
     async def run_workflow(
         self,
         user_input: str,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
+        user_email: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute multi-agent workflow for user query.
-        Delegates from Coordinator to Task, Notes, Calendar, or Planner agents.
+        Delegates from Coordinator to Task, Notes, Calendar, Gmail, or Planner agents.
+        Supports multi-user execution context.
         """
+        uid = user_id or "default_user"
+        set_user_context(user_id=uid, name=user_name, email=user_email)
+
         # 1. Enforce ₹0 budget limit
         usage_tracker.enforce_quota_or_raise()
 
         sid = session_id or str(uuid.uuid4())
-        await self._ensure_session(sid)
+        await self._ensure_session(sid, user_id=uid)
 
-        # 2. Check if Gemini API key is configured
+        # 2. Check if Gemini API key is configured or MOCK_MODE is enabled
         api_key = self.settings.GEMINI_API_KEY
-        if not api_key or not api_key.strip():
-            # If no API key configured, use deterministic agent routing for testing/offline mode
-            return await self._deterministic_offline_delegation(user_input, sid)
+        if not api_key or not api_key.strip() or self.settings.MOCK_MODE:
+            # If no API key configured or in MOCK_MODE, use deterministic agent routing for testing/offline mode
+            return await self._deterministic_offline_delegation(
+                user_input, sid, user_id=uid, user_name=user_name, user_email=user_email
+            )
 
         # Set environment variable so Google ADK Gemini model authenticates automatically
         import os
@@ -86,9 +97,13 @@ class MultiAgentOrchestrator:
 
         # 3. Live Google ADK Execution with Gemini
         usage_tracker.record_agent_run()
+        prompt_text = user_input
+        if user_name:
+            prompt_text = f"[Current User: {user_name} ({user_email or 'logged-in'})]\n{user_input}"
+
         content = genai_types.Content(
             role="user",
-            parts=[genai_types.Part.from_text(text=user_input)],
+            parts=[genai_types.Part.from_text(text=prompt_text)],
         )
 
         max_attempts = 2
@@ -99,7 +114,7 @@ class MultiAgentOrchestrator:
 
             try:
                 async for event in self.runner.run_async(
-                    user_id=USER_ID,
+                    user_id=uid,
                     session_id=sid,
                     new_message=content,
                 ):
@@ -150,7 +165,9 @@ class MultiAgentOrchestrator:
                     continue
 
                 logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
-                fallback = await self._deterministic_offline_delegation(user_input, sid)
+                fallback = await self._deterministic_offline_delegation(
+                    user_input, sid, user_id=uid, user_name=user_name, user_email=user_email
+                )
                 if "402" in err_str or "prepayment" in err_str.lower():
                     banner = (
                         "⚠️ **Google AI Studio 402 Notice:** The configured Gemini API key is linked to a project requiring prepayment credits. "
@@ -169,11 +186,20 @@ class MultiAgentOrchestrator:
                 fallback["orchestration"]["live_adk_error"] = str(exc)
                 return fallback
 
-    async def _deterministic_offline_delegation(self, user_input: str, session_id: str) -> Dict[str, Any]:
+    async def _deterministic_offline_delegation(
+        self,
+        user_input: str,
+        session_id: str,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
+        user_email: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Deterministic intent router for testing and offline execution without API keys.
         Ensures agents actually execute tools and demonstrate genuine delegation.
         """
+        uid = user_id or "default_user"
+        set_user_context(user_id=uid, name=user_name, email=user_email)
         usage_tracker.record_agent_run()
         lower = user_input.lower()
         activated_agent = "SynaptixCoordinator"
@@ -252,6 +278,7 @@ class MultiAgentOrchestrator:
                 elif "email " in lower:
                     to_target = user_input.split("email ", 1)[1].split(" ", 1)[0].strip()
 
+                signoff = user_name or "Synaptix AI Assistant"
                 subject = f"Follow-up: {user_input[:40]}"
                 body = (
                     f"Hi {to_target.split('@')[0].title()},\n\n"
@@ -259,7 +286,7 @@ class MultiAgentOrchestrator:
                     f"Regarding our discussion:\n"
                     f"• {user_input}\n\n"
                     f"Please let me know if this works for you or if you need any adjustments.\n\n"
-                    f"Best regards,\nSynaptix AI Assistant"
+                    f"Best regards,\n{signoff}"
                 )
                 draft_res = json.loads(email_draft_create(to=to_target, subject=subject, body=body))
                 tools_called.append("email_draft_create")

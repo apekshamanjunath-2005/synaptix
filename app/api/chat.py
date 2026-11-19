@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.agents.orchestrator import orchestrator
+from app.api.auth import get_current_user
+from app.agents.context import set_user_context
 from app.core.usage_tracker import verify_budget_quota
 
 router = APIRouter(prefix="/api", tags=["Multi-Agent Chat"])
@@ -38,15 +40,27 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_budget_quota)])
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(
+    request: ChatRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
     """
     Handle natural language user requests via Synaptix Coordinator Agent.
-    Delegates to TaskAgent, NotesAgent, CalendarAgent, or SmartDayPlannerAgent.
-    Protected by daily ₹0 quota limits.
+    Delegates to TaskAgent, NotesAgent, CalendarAgent, GmailAgent, or SmartDayPlannerAgent.
+    Protected by daily ₹0 quota limits and scoped to active authenticated user.
     """
+    uid = current_user.get("user_id", "default_user")
+    uname = current_user.get("name")
+    uemail = current_user.get("email")
+
+    set_user_context(user_id=uid, name=uname, email=uemail)
+
     result = await orchestrator.run_workflow(
         user_input=request.message,
-        session_id=request.session_id
+        session_id=request.session_id,
+        user_id=uid,
+        user_name=uname,
+        user_email=uemail
     )
 
     return ChatResponse(

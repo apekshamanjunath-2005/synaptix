@@ -39,12 +39,19 @@ class LocalFirestoreDocument:
             data = self._storage.get(self.collection_name, {}).get(self.id)
             return LocalDocumentSnapshot(self.id, data)
 
-    def set(self, data: dict):
+    def set(self, data: dict, merge: bool = False):
         with self._lock:
             if self.collection_name not in self._storage:
                 self._storage[self.collection_name] = {}
-            self._storage[self.collection_name][self.id] = data
+            if merge and self.id in self._storage[self.collection_name]:
+                self._storage[self.collection_name][self.id].update(data)
+            else:
+                self._storage[self.collection_name][self.id] = data
             self._persist()
+
+    def collection(self, sub_collection_name: str):
+        sub_key = f"{self.collection_name}/{self.id}/{sub_collection_name}"
+        return LocalFirestoreCollection(sub_key, self._storage, self._lock)
 
     def update(self, updates: dict):
         with self._lock:
@@ -178,7 +185,8 @@ class FirestoreService:
         title: str,
         due_date: Optional[str] = None,
         priority: str = "medium",
-        status: str = "pending"
+        status: str = "pending",
+        user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Insert a task document into the 'tasks' collection."""
         task_id = f"task-{uuid.uuid4().hex[:6]}"
@@ -189,25 +197,29 @@ class FirestoreService:
             "due_date": due_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "priority": priority.lower(),
             "status": status.lower(),
+            "user_id": user_id or "default_user",
             "created_at": now_iso,
             "updated_at": now_iso,
         }
         self.client.collection("tasks").document(task_id).set(task_data)
         usage_tracker.record_tool_call("firestore")
-        logger.info("Firestore task added: %s (%s)", title, task_id)
+        logger.info("Firestore task added: %s (%s) for user %s", title, task_id, task_data["user_id"])
         return task_data
 
     def get_tasks(
         self,
         status: Optional[str] = None,
-        priority: Optional[str] = None
+        priority: Optional[str] = None,
+        user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Retrieve tasks with optional status and priority filtering."""
+        """Retrieve tasks with optional status, priority, and user_id filtering."""
         docs = self.client.collection("tasks").stream()
         tasks = []
         for doc in docs:
             t = doc.to_dict()
             if not t:
+                continue
+            if user_id and t.get("user_id") != user_id:
                 continue
             if status and t.get("status") != status.lower():
                 continue
@@ -286,7 +298,8 @@ class FirestoreService:
         self,
         content: str,
         title: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Save a new note document into the 'notes' collection."""
         note_id = f"note-{uuid.uuid4().hex[:6]}"
@@ -297,26 +310,34 @@ class FirestoreService:
             "title": note_title,
             "content": content,
             "tags": tags or [],
+            "user_id": user_id or "default_user",
             "created_at": now_iso,
             "updated_at": now_iso,
         }
         self.client.collection("notes").document(note_id).set(note_data)
         usage_tracker.record_tool_call("firestore")
-        logger.info("Firestore note added: %s (%s)", note_title, note_id)
+        logger.info("Firestore note added: %s (%s) for user %s", note_title, note_id, note_data["user_id"])
         return note_data
 
-    def get_notes(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Retrieve recent notes up to limit."""
+    def get_notes(self, limit: int = 20, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieve recent notes up to limit with optional user_id filtering."""
         docs = self.client.collection("notes").stream()
-        notes = [doc.to_dict() for doc in docs if doc.to_dict()]
+        notes = []
+        for doc in docs:
+            n = doc.to_dict()
+            if not n:
+                continue
+            if user_id and n.get("user_id") != user_id:
+                continue
+            notes.append(n)
         usage_tracker.record_tool_call("firestore")
         sorted_notes = sorted(notes, key=lambda x: x.get("created_at", ""), reverse=True)
         return sorted_notes[:limit]
 
-    def search_notes(self, query: str) -> List[Dict[str, Any]]:
-        """Search notes by keyword in title, content, or tags."""
+    def search_notes(self, query: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Search notes by keyword in title, content, or tags with optional user_id filtering."""
         q = query.lower()
-        all_notes = self.get_notes(limit=100)
+        all_notes = self.get_notes(limit=100, user_id=user_id)
         matches = [
             n for n in all_notes
             if q in n.get("title", "").lower() or q in n.get("content", "").lower() or any(q in t for t in n.get("tags", []))
@@ -335,6 +356,63 @@ class FirestoreService:
             logger.info("Firestore note deleted: %s", note_id)
             return True
         return False
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # USER OAUTH & PROFILE REPOSITORY (Multi-User Google Login)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    def save_user_tokens(self, user_id: str, tokens: Dict[str, Any]) -> None:
+        """Store user's OAuth tokens under users/{user_id}/oauth_tokens/credentials."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "tokens": tokens,
+            "updated_at": now_iso,
+        }
+        self.client.collection("users").document(user_id).collection("oauth_tokens").document("credentials").set(payload)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Saved OAuth tokens for user: %s", user_id)
+
+    def get_user_tokens(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve user's OAuth tokens from users/{user_id}/oauth_tokens/credentials."""
+        doc = self.client.collection("users").document(user_id).collection("oauth_tokens").document("credentials").get()
+        if doc and doc.exists:
+            data = doc.to_dict()
+            usage_tracker.record_tool_call("firestore")
+            return data.get("tokens") if data else None
+        return None
+
+    def delete_user_tokens(self, user_id: str) -> bool:
+        """Remove user's stored OAuth credentials."""
+        doc_ref = self.client.collection("users").document(user_id).collection("oauth_tokens").document("credentials")
+        doc = doc_ref.get()
+        if doc and doc.exists:
+            doc_ref.delete()
+            usage_tracker.record_tool_call("firestore")
+            logger.info("Deleted OAuth tokens for user: %s", user_id)
+            return True
+        return False
+
+    def save_user_profile(self, user_id: str, profile: Dict[str, Any]) -> None:
+        """Store user profile under users/{user_id}."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        doc_data = {
+            "user_id": user_id,
+            "email": profile.get("email"),
+            "name": profile.get("name"),
+            "picture": profile.get("picture"),
+            "updated_at": now_iso,
+        }
+        self.client.collection("users").document(user_id).set(doc_data)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Saved profile for user: %s (%s)", user_id, profile.get("email"))
+
+    def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve user profile from users/{user_id}."""
+        doc = self.client.collection("users").document(user_id).get()
+        if doc and doc.exists:
+            usage_tracker.record_tool_call("firestore")
+            return doc.to_dict()
+        return None
 
 
 # Global singleton instance

@@ -18,6 +18,7 @@ from typing import Optional, List, Dict, Any
 
 from app.config import get_settings
 from app.core.usage_tracker import usage_tracker
+from app.core.context import current_user_id
 
 logger = logging.getLogger("synaptix.tools.calendar_mcp")
 
@@ -84,21 +85,63 @@ class CalendarMCPProvider:
             self.is_live_google = False
             logger.info("Running Calendar MCP with local persistent calendar store (₹0 Free Tier Mode).")
 
+    def get_user_calendar_client(self, user_id: Optional[str] = None):
+        """Dynamically load Google Calendar client from user's Firestore OAuth tokens."""
+        target_uid = user_id or current_user_id.get("default_user")
+        if target_uid and target_uid != "default_user":
+            try:
+                from app.database.firestore import firestore_service
+                tokens = firestore_service.get_user_tokens(target_uid)
+                if tokens:
+                    from google.oauth2.credentials import Credentials
+                    from google.auth.transport.requests import Request
+                    from googleapiclient.discovery import build
+
+                    client_id = tokens.get("client_id") or self.settings.effective_client_id
+                    client_secret = tokens.get("client_secret") or self.settings.effective_client_secret
+                    creds = Credentials(
+                        token=tokens.get("access_token"),
+                        refresh_token=tokens.get("refresh_token"),
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        scopes=self.settings.GOOGLE_OAUTH_SCOPES,
+                    )
+                    if creds and creds.expired and creds.refresh_token:
+                        try:
+                            creds.refresh(Request())
+                            updated_tokens = dict(tokens)
+                            updated_tokens["access_token"] = creds.token
+                            if creds.expiry:
+                                updated_tokens["expires_at"] = creds.expiry.isoformat()
+                            firestore_service.save_user_tokens(target_uid, updated_tokens)
+                        except Exception as ref_err:
+                            logger.warning("Failed refreshing calendar token for user %s: %s", target_uid, ref_err)
+
+                    if creds and creds.valid:
+                        return build("calendar", "v3", credentials=creds)
+            except Exception as exc:
+                logger.warning("Could not build live Calendar client for user %s: %s", target_uid, exc)
+        return None
+
     # ────────────────────────────────────────────────────────────────────────────
     # MCP TOOLS IMPLEMENTATION
     # ────────────────────────────────────────────────────────────────────────────
 
-    def list_events(self, date_str: Optional[str] = None, max_results: int = 15) -> List[Dict[str, Any]]:
+    def list_events(self, date_str: Optional[str] = None, max_results: int = 15, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         MCP Tool: List calendar events for a specific date (defaults to today).
         """
         target_date = date_str or date.today().strftime("%Y-%m-%d")
+        uid = user_id or current_user_id.get("default_user")
         usage_tracker.record_tool_call("calendar")
 
         with self._lock:
             matched = [
                 e for e in self._events.values()
-                if e.get("start_time", "").startswith(target_date)
+                if e.get("start_time", "").startswith(target_date) and (
+                    uid == "default_user" or not e.get("user_id") or e.get("user_id") == uid
+                )
             ]
             sorted_events = sorted(matched, key=lambda x: x.get("start_time", ""))
             return sorted_events[:max_results]
@@ -109,12 +152,14 @@ class CalendarMCPProvider:
         start_time: str,
         end_time: str,
         description: str = "",
-        location: str = ""
+        location: str = "",
+        user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         MCP Tool: Schedule a new calendar event.
         """
         usage_tracker.record_tool_call("calendar")
+        uid = user_id or current_user_id.get("default_user")
         event_id = f"event-{uuid.uuid4().hex[:6]}"
         new_event = {
             "id": event_id,
@@ -123,6 +168,7 @@ class CalendarMCPProvider:
             "end_time": end_time,
             "description": description or "",
             "location": location or "",
+            "user_id": uid,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -130,7 +176,7 @@ class CalendarMCPProvider:
             self._events[event_id] = new_event
             self._persist()
 
-        logger.info("Event scheduled via MCP: %s (%s to %s)", summary, start_time, end_time)
+        logger.info("Event scheduled via MCP: %s (%s to %s) for user %s", summary, start_time, end_time, uid)
         return new_event
 
     def update_event(

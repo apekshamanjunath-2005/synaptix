@@ -59,7 +59,7 @@ def make_request(url, method="POST", payload=None):
     headers = {"Content-Type": "application/json"} if payload is not None else {}
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=50) as resp:
             return resp.status, json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         body = e.read().decode()

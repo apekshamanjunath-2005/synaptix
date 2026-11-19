@@ -40,7 +40,7 @@ def make_request(url: str, method: str = "GET", payload: dict = None) -> tuple[i
     headers = {"Content-Type": "application/json"} if payload else {}
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=50) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             return resp.status, body
     except urllib.error.HTTPError as e:

@@ -1,9 +1,11 @@
 """
 Gmail Service & Adapter for Synaptix Personal Productivity Assistant
 Provides draft creation and sending with Human-in-the-Loop review gates.
+Supports multi-user OAuth token loading dynamically from Firestore.
 
 Features:
 - Live Google Gmail API v1 integration (using https://www.googleapis.com/auth/gmail.compose)
+- Multi-user support: dynamically resolves credentials from Firestore for active user
 - Dual-mode architecture: seamlessly falls back to thread-safe local persistent storage (.gmail_local.json)
 - Zero-cost guarantee (never requires paid API credits)
 - Enforces strict Human-in-the-Loop approval protocol
@@ -22,6 +24,7 @@ from typing import Optional, List, Dict, Any
 
 from app.config import get_settings
 from app.core.usage_tracker import usage_tracker
+from app.core.context import current_user_id
 
 logger = logging.getLogger("synaptix.tools.gmail")
 
@@ -37,7 +40,8 @@ GMAIL_SCOPES = [
 class GmailService:
     """
     Dual-mode Gmail service provider.
-    Supports live Gmail API v1 with OAuth 2.0 and thread-safe persistent fallback storage.
+    Supports live Gmail API v1 with per-user dynamic OAuth from Firestore
+    and thread-safe persistent fallback storage.
     """
 
     def __init__(self, token_path: Optional[str] = None):
@@ -76,7 +80,7 @@ class GmailService:
             logger.warning("Failed to persist local email drafts: %s", exc)
 
     def _init_live_client(self) -> None:
-        """Attempt to initialize Google Gmail API v1 client from token.json."""
+        """Attempt to initialize fallback Google Gmail API v1 client from token.json."""
         if not self.token_path.exists():
             logger.info("No token.json detected at %s. Operating in zero-cost local draft mode.", self.token_path)
             self.is_live_gmail = False
@@ -91,26 +95,23 @@ class GmailService:
             if creds and creds.expired and creds.refresh_token:
                 try:
                     creds.refresh(Request())
-                    # Re-save refreshed token
                     self.token_path.write_text(creds.to_json(), encoding="utf-8")
                 except Exception as ref_err:
                     logger.warning("Could not refresh token.json: %s", ref_err)
 
             if creds and creds.valid:
-                # Verify required scope is granted
                 granted_scopes = creds.scopes or []
                 has_compose = any("gmail.compose" in s for s in granted_scopes)
                 if not has_compose:
                     logger.warning(
-                        "token.json exists but lacks 'https://www.googleapis.com/auth/gmail.compose' scope. "
-                        "Please run scripts/authenticate_google.py to re-authorize Gmail."
+                        "token.json exists but lacks 'https://www.googleapis.com/auth/gmail.compose' scope."
                     )
                     self.is_live_gmail = False
                     return
 
                 self._service = build("gmail", "v1", credentials=creds)
                 self.is_live_gmail = True
-                logger.info("Live Google Gmail API initialized successfully.")
+                logger.info("Live Google Gmail API initialized successfully from token.json.")
             else:
                 self.is_live_gmail = False
                 logger.warning("Google OAuth token is invalid or lacks required permissions.")
@@ -118,23 +119,80 @@ class GmailService:
             self.is_live_gmail = False
             logger.warning("Could not initialize live Gmail client: %s. Using local fallback.", exc)
 
+    def get_user_gmail_client(self, user_id: Optional[str] = None):
+        """
+        Dynamically loads Google OAuth credentials for a specific user from Firestore.
+        Auto-refreshes expired access tokens and persists updated tokens back to Firestore.
+        Falls back to global token.json client or None if unconfigured.
+        """
+        target_uid = user_id or current_user_id.get("default_user")
+        if target_uid and target_uid != "default_user":
+            try:
+                from app.database.firestore import firestore_service
+                tokens = firestore_service.get_user_tokens(target_uid)
+                if tokens:
+                    from google.oauth2.credentials import Credentials
+                    from google.auth.transport.requests import Request
+                    from googleapiclient.discovery import build
+
+                    client_id = tokens.get("client_id") or self.settings.effective_client_id
+                    client_secret = tokens.get("client_secret") or self.settings.effective_client_secret
+                    creds = Credentials(
+                        token=tokens.get("access_token"),
+                        refresh_token=tokens.get("refresh_token"),
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        scopes=self.settings.GOOGLE_OAUTH_SCOPES,
+                    )
+
+                    if creds and creds.expired and creds.refresh_token:
+                        try:
+                            creds.refresh(Request())
+                            updated_tokens = dict(tokens)
+                            updated_tokens["access_token"] = creds.token
+                            if creds.expiry:
+                                updated_tokens["expires_at"] = creds.expiry.isoformat()
+                            firestore_service.save_user_tokens(target_uid, updated_tokens)
+                            logger.info("Refreshed expired Gmail OAuth token for user: %s", target_uid)
+                        except Exception as ref_err:
+                            logger.warning("Failed refreshing token for user %s: %s", target_uid, ref_err)
+
+                    if creds and creds.valid:
+                        return build("gmail", "v1", credentials=creds)
+            except Exception as exc:
+                logger.warning("Failed to construct dynamic Gmail client for user %s: %s", target_uid, exc)
+
+        # Fallback to default local token client
+        if self.is_live_gmail and self._service:
+            return self._service
+        return None
+
     @property
     def is_configured(self) -> bool:
         """Returns True if Google OAuth Client ID is configured in settings or live Gmail is active."""
-        return bool(self.settings.GOOGLE_CALENDAR_CLIENT_ID) or self.is_live_gmail
+        return bool(self.settings.effective_client_id) or self.is_live_gmail
 
-    def create_email_draft(self, to: str, subject: str, body: str) -> Dict[str, Any]:
+    def create_email_draft(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Creates an email draft.
-        If live Gmail is authenticated, creates a real draft in user's Gmail mailbox.
+        If live Gmail is authenticated for the user, creates a real draft in their Gmail mailbox.
         Otherwise, stores safely in .gmail_local.json for testing and zero-cost operation.
         """
         usage_tracker.record_tool_call("gmail")
+        uid = user_id or current_user_id.get("default_user")
         to_clean = to.strip()
         subject_clean = subject.strip()
         body_clean = body.strip()
 
-        if self.is_live_gmail and self._service:
+        client = self.get_user_gmail_client(uid)
+        if client:
             try:
                 mime_msg = MIMEText(body_clean)
                 mime_msg["to"] = to_clean
@@ -143,7 +201,7 @@ class GmailService:
 
                 draft_payload = {"message": {"raw": raw_bytes}}
                 created_draft = (
-                    self._service.users()
+                    client.users()
                     .drafts()
                     .create(userId="me", body=draft_payload)
                     .execute()
@@ -151,15 +209,20 @@ class GmailService:
                 draft_id = created_draft.get("id", f"draft-{uuid.uuid4().hex[:6]}")
                 result = {
                     "draft_id": draft_id,
+                    "id": draft_id,
                     "to": to_clean,
                     "subject": subject_clean,
                     "body": body_clean,
                     "status": "draft",
+                    "user_id": uid,
                     "is_live_gmail": True,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "source": "google_gmail_api",
                 }
-                logger.info("Live Gmail draft created with ID: %s", draft_id)
+                with self._lock:
+                    self._drafts[draft_id] = result
+                    self._persist_local_drafts()
+                logger.info("Live Gmail draft created with ID: %s for user: %s", draft_id, uid)
                 return result
             except Exception as exc:
                 logger.error("Live Gmail draft creation failed: %s. Falling back to local storage.", exc)
@@ -169,6 +232,7 @@ class GmailService:
         record = {
             "draft_id": draft_id,
             "id": draft_id,
+            "user_id": uid,
             "to": to_clean,
             "subject": subject_clean,
             "body": body_clean,
@@ -181,32 +245,40 @@ class GmailService:
             self._drafts[draft_id] = record
             self._persist_local_drafts()
 
-        logger.info("Created local email draft %s to %s", draft_id, to_clean)
+        logger.info("Created local email draft %s to %s for user %s", draft_id, to_clean, uid)
         return record
 
-    def send_email_draft(self, draft_id: str) -> Dict[str, Any]:
+    def send_email_draft(self, draft_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Sends an existing email draft after explicit human approval.
-        If live Gmail is authenticated, dispatches via Gmail API drafts.send.
+        If live Gmail is authenticated for the user, dispatches via Gmail API drafts.send.
         Otherwise, updates local draft status to 'sent'.
         """
         usage_tracker.record_tool_call("gmail")
+        uid = user_id or current_user_id.get("default_user")
         draft_id_clean = draft_id.strip()
 
-        if self.is_live_gmail and self._service:
+        client = self.get_user_gmail_client(uid)
+        if client:
             try:
                 sent_msg = (
-                    self._service.users()
+                    client.users()
                     .drafts()
                     .send(userId="me", body={"id": draft_id_clean})
                     .execute()
                 )
-                logger.info("Live Gmail draft %s sent successfully. Message ID: %s", draft_id_clean, sent_msg.get("id"))
+                with self._lock:
+                    if draft_id_clean in self._drafts:
+                        self._drafts[draft_id_clean]["status"] = "sent"
+                        self._drafts[draft_id_clean]["sent_at"] = datetime.now(timezone.utc).isoformat()
+                        self._persist_local_drafts()
+                logger.info("Live Gmail draft %s sent successfully for user %s. Message ID: %s", draft_id_clean, uid, sent_msg.get("id"))
                 return {
                     "draft_id": draft_id_clean,
                     "message_id": sent_msg.get("id"),
                     "sent": True,
                     "status": "sent",
+                    "user_id": uid,
                     "is_live_gmail": True,
                     "sent_at": datetime.now(timezone.utc).isoformat(),
                     "source": "google_gmail_api",
@@ -239,6 +311,7 @@ class GmailService:
                     "sent": True,
                     "already_sent": True,
                     "status": "sent",
+                    "user_id": target.get("user_id"),
                     "sent_at": target.get("sent_at"),
                     "note": "Draft was already sent previously.",
                 }
@@ -248,13 +321,14 @@ class GmailService:
             self._drafts[draft_id_clean] = target
             self._persist_local_drafts()
 
-        logger.info("Local draft %s marked as sent.", draft_id_clean)
+        logger.info("Local draft %s marked as sent for user %s.", draft_id_clean, uid)
         return {
             "draft_id": draft_id_clean,
             "to": target.get("to"),
             "subject": target.get("subject"),
             "sent": True,
             "status": "sent",
+            "user_id": target.get("user_id"),
             "is_live_gmail": False,
             "sent_at": target.get("sent_at"),
             "source": "local_persistent_storage",
@@ -265,10 +339,12 @@ class GmailService:
         with self._lock:
             return self._drafts.get(draft_id)
 
-    def list_drafts(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List drafts filtered by status ('draft' or 'sent')."""
+    def list_drafts(self, status: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List drafts filtered by status ('draft' or 'sent') and optional user_id."""
         with self._lock:
             items = list(self._drafts.values())
+            if user_id:
+                items = [i for i in items if i.get("user_id") == user_id or not i.get("user_id") or user_id == "default_user"]
             if status:
                 items = [i for i in items if i.get("status") == status]
             return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)

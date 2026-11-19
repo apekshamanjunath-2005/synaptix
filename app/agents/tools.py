@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 
 from app.database.firestore import firestore_service
 from app.tools.gmail_service import gmail_service
+from app.agents.context import current_user_id, current_user_name
 
 logger = logging.getLogger("synaptix.agents.tools")
 
@@ -37,11 +38,13 @@ def task_create(
         JSON string confirming task creation with assigned ID.
     """
     try:
+        uid = current_user_id.get("default_user")
         task_data = firestore_service.add_task(
             title=title,
             due_date=due_date,
             priority=priority,
-            status=status
+            status=status,
+            user_id=uid
         )
         return json.dumps({"success": True, "action": "created", "task": task_data})
     except Exception as e:
@@ -61,7 +64,8 @@ def task_list(status: Optional[str] = None, priority: Optional[str] = None) -> s
         JSON string containing list of matching tasks.
     """
     try:
-        tasks = firestore_service.get_tasks(status=status, priority=priority)
+        uid = current_user_id.get("default_user")
+        tasks = firestore_service.get_tasks(status=status, priority=priority, user_id=uid)
         return json.dumps({"count": len(tasks), "tasks": tasks})
     except Exception as e:
         logger.error("Error listing tasks: %s", e)
@@ -141,7 +145,8 @@ def note_save(content: str, title: Optional[str] = None, tags: Optional[str] = N
     """
     try:
         tag_list = [t.strip().lower() for t in tags.split(",")] if tags else []
-        note_data = firestore_service.add_note(content=content, title=title, tags=tag_list)
+        uid = current_user_id.get("default_user")
+        note_data = firestore_service.add_note(content=content, title=title, tags=tag_list, user_id=uid)
         return json.dumps({"success": True, "action": "saved", "note": note_data})
     except Exception as e:
         logger.error("Error saving note: %s", e)
@@ -159,7 +164,8 @@ def note_list(limit: int = 10) -> str:
         JSON string containing list of notes.
     """
     try:
-        notes = firestore_service.get_notes(limit=limit)
+        uid = current_user_id.get("default_user")
+        notes = firestore_service.get_notes(limit=limit, user_id=uid)
         return json.dumps({"count": len(notes), "notes": notes})
     except Exception as e:
         logger.error("Error listing notes: %s", e)
@@ -177,7 +183,8 @@ def note_search(query: str) -> str:
         JSON string containing matching notes.
     """
     try:
-        matches = firestore_service.search_notes(query)
+        uid = current_user_id.get("default_user")
+        matches = firestore_service.search_notes(query, user_id=uid)
         return json.dumps({"count": len(matches), "query": query, "notes": matches})
     except Exception as e:
         logger.error("Error searching notes: %s", e)
@@ -409,7 +416,8 @@ def email_draft_create(to: str, subject: str, body: str) -> str:
         JSON string confirming draft creation with draft_id and status='draft'.
     """
     try:
-        draft = gmail_service.create_email_draft(to=to, subject=subject, body=body)
+        uid = current_user_id.get("default_user")
+        draft = gmail_service.create_email_draft(to=to, subject=subject, body=body, user_id=uid)
         return json.dumps({"success": True, "action": "draft_created", "draft": draft})
     except Exception as exc:
         logger.error("Error creating email draft: %s", exc)
@@ -429,7 +437,8 @@ def email_draft_send(draft_id: str) -> str:
         JSON string confirming dispatch status.
     """
     try:
-        result = gmail_service.send_email_draft(draft_id=draft_id)
+        uid = current_user_id.get("default_user")
+        result = gmail_service.send_email_draft(draft_id=draft_id, user_id=uid)
         return json.dumps({"success": result.get("sent", False), "action": "draft_sent", "result": result})
     except Exception as exc:
         logger.error("Error sending email draft %s: %s", draft_id, exc)
@@ -444,7 +453,8 @@ def email_draft_list() -> str:
         JSON string containing the list of drafts.
     """
     try:
-        drafts = gmail_service.list_drafts()
+        uid = current_user_id.get("default_user")
+        drafts = gmail_service.list_drafts(user_id=uid)
         return json.dumps({"success": True, "count": len(drafts), "drafts": drafts})
     except Exception as exc:
         logger.error("Error listing email drafts: %s", exc)
