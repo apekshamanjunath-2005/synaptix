@@ -6,13 +6,13 @@
 @property --aura-angle {
   syntax: '<angle>';
   initial-value: 0deg;
-  inherits: false;
+  inherits: true;
 }
 
 @property --angle {
   syntax: '<angle>';
   initial-value: 0deg;
-  inherits: false;
+  inherits: true;
 }
 
 :root {
@@ -530,15 +530,31 @@ a {
   transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Base Idle State: Calm continuous orbit */
+/* Base Idle State: Calm continuous 6s orbit around entire perimeter */
 .aura-glow-wrapper {
   position: relative;
   width: 100%;
   border-radius: 22px;
   padding: 1.5px;
-  background: conic-gradient(from var(--aura-angle), var(--glow-orange) 0deg, var(--glow-blue) 180deg, var(--glow-orange) 360deg);
+  background: conic-gradient(
+    from var(--aura-angle),
+    #ff6b3d 0deg,
+    rgba(255, 107, 61, 0.55) 30deg,
+    rgba(255, 255, 255, 0.08) 80deg,
+    rgba(59, 130, 246, 0.25) 120deg,
+    rgba(59, 130, 246, 0.7) 150deg,
+    #3b82f6 180deg,
+    rgba(59, 130, 246, 0.7) 210deg,
+    rgba(59, 130, 246, 0.25) 240deg,
+    rgba(255, 255, 255, 0.08) 280deg,
+    rgba(255, 107, 61, 0.55) 330deg,
+    #ff6b3d 360deg
+  );
   animation: rotateAura 6s linear infinite;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, box-shadow;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
 }
 
@@ -546,50 +562,66 @@ a {
 .aura-glow-wrapper::before {
   content: '';
   position: absolute;
-  inset: -4px;
-  border-radius: 26px;
-  background: conic-gradient(from var(--aura-angle), var(--glow-orange) 0deg, var(--glow-blue) 180deg, var(--glow-orange) 360deg);
+  inset: -5px;
+  border-radius: 27px;
+  background: conic-gradient(
+    from var(--aura-angle),
+    #ff6b3d 0deg,
+    rgba(255, 107, 61, 0.65) 35deg,
+    transparent 80deg,
+    rgba(59, 130, 246, 0.2) 120deg,
+    rgba(59, 130, 246, 0.75) 155deg,
+    #3b82f6 180deg,
+    rgba(59, 130, 246, 0.75) 205deg,
+    rgba(59, 130, 246, 0.2) 240deg,
+    transparent 280deg,
+    rgba(255, 107, 61, 0.65) 325deg,
+    #ff6b3d 360deg
+  );
   animation: rotateAura 6s linear infinite;
-  filter: blur(22px);
-  opacity: 0.36;
+  filter: blur(24px);
+  opacity: 0.45;
   z-index: -1;
   pointer-events: none;
-  transition: opacity 0.3s ease, filter 0.3s ease, inset 0.3s ease;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+  transition: opacity 0.35s ease, filter 0.35s ease, inset 0.35s ease;
 }
 
 /* Dynamic State: Focused (typing) -> soft brightening & subtle scale */
 .aura-glow-wrapper:focus-within,
 .aura-glow-wrapper.is-focused {
-  transform: scale(1.008);
+  transform: scale(1.008) translateZ(0);
   box-shadow: 0 12px 42px rgba(0, 0, 0, 0.65);
 }
 
 .aura-glow-wrapper:focus-within::before,
 .aura-glow-wrapper.is-focused::before {
-  opacity: 0.55;
+  opacity: 0.65;
   filter: blur(28px);
-  inset: -6px;
+  inset: -7px;
 }
 
-/* Dynamic State: Agent Thinking / Loading -> fast 2s orbit + pulsing bloom */
+/* Dynamic State: Agent Thinking / Loading -> speed up to ~2.5s orbit + pulsing bloom */
 .aura-glow-wrapper.is-thinking {
-  animation: rotateAura 2s linear infinite !important;
+  animation: rotateAura 2.5s linear infinite !important;
 }
 
 .aura-glow-wrapper.is-thinking::before {
-  animation: rotateAura 2s linear infinite, pulseBloom 1.2s ease-in-out infinite alternate !important;
+  animation: rotateAura 2.5s linear infinite, pulseBloom 1.2s ease-in-out infinite alternate !important;
 }
 
 @keyframes pulseBloom {
   0% {
     filter: blur(22px);
-    opacity: 0.42;
-    inset: -4px;
+    opacity: 0.48;
+    inset: -5px;
   }
   100% {
     filter: blur(34px);
-    opacity: 0.78;
-    inset: -8px;
+    opacity: 0.85;
+    inset: -9px;
   }
 }
 
