@@ -158,17 +158,51 @@
             <div class="stat-label">High Priority</div>
           </div>
         </div>
-        <div class="card info-box">
-          <h3>Task Agent Integration</h3>
-          <p>The Task Agent will manage your tasks with due dates, priority levels, and statuses directly in <strong>Firebase Firestore (Spark Plan — ₹0)</strong> starting in Milestone 3 & 4.</p>
+
+        <div class="card" style="margin-bottom: 20px;">
+          <h3>Add New Task (Firestore)</h3>
+          <form id="createTaskForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="newTaskTitle" placeholder="Task title..." required style="flex: 2; min-width: 200px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <input type="date" id="newTaskDueDate" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <select id="newTaskPriority" style="flex: 1; min-width: 110px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+              <option value="low">Low Priority</option>
+              <option value="medium" selected>Medium Priority</option>
+              <option value="high">High Priority</option>
+            </select>
+            <button type="submit" class="send-btn" style="width: auto; padding: 0 18px; border-radius: 8px; font-weight: 600;">+ Add Task</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Active Tasks in Storage</h3>
+          <div id="tasksContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <p style="color: var(--text-muted);">Loading tasks from Firestore...</p>
+          </div>
         </div>
       </section>
 
       <!-- Tab 3: Notes View -->
       <section class="tab-pane" id="tab-notes">
-        <div class="card info-box">
-          <h3>Notes Agent Integration</h3>
-          <p>The Notes Agent enables semantic search, tagging, and contextual retrieval for your personal and project notes, stored in Firestore.</p>
+        <div class="card" style="margin-bottom: 20px;">
+          <h3>Capture Note (Firestore)</h3>
+          <form id="createNoteForm" style="display: flex; flex-direction: column; gap: 10px;">
+            <input type="text" id="newNoteTitle" placeholder="Optional title..." style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+            <textarea id="newNoteContent" placeholder="Write your note, idea, or meeting summary..." required rows="3" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 10px;">
+              <input type="text" id="newNoteTags" placeholder="Comma-separated tags (e.g. work, project)" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
+              <button type="submit" class="send-btn" style="width: auto; padding: 0 20px; border-radius: 8px; font-weight: 600;">💾 Save Note</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="margin: 0;">Stored Notes</h3>
+            <input type="text" id="searchNotesInput" placeholder="🔍 Search notes..." style="padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; font-size: 0.85rem;">
+          </div>
+          <div id="notesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
+            <p style="color: var(--text-muted);">Loading notes from Firestore...</p>
+          </div>
         </div>
       </section>
 

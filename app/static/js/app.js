@@ -89,6 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTabTitle.textContent = tabMetadata[targetTab].title;
         currentTabDesc.textContent = tabMetadata[targetTab].desc;
       }
+
+      if (targetTab === 'tasks') loadTasks();
+      if (targetTab === 'notes') loadNotes();
     });
   });
 
@@ -311,6 +314,193 @@ document.addEventListener('DOMContentLoaded', () => {
       chatForm.dispatchEvent(new Event('submit'));
     });
   });
+
+  // 7. Tasks Management Functions
+  const tasksContainer = document.getElementById('tasksContainer');
+  const createTaskForm = document.getElementById('createTaskForm');
+  const taskPendingCount = document.getElementById('taskPendingCount');
+  const taskCompletedCount = document.getElementById('taskCompletedCount');
+  const taskPriorityCount = document.getElementById('taskPriorityCount');
+
+  async function loadTasks() {
+    if (!tasksContainer) return;
+    try {
+      const resp = await fetch('/api/tasks');
+      const data = await resp.json();
+      const tasks = data.tasks || [];
+
+      // Update stats
+      let pending = 0, completed = 0, high = 0;
+      tasks.forEach(t => {
+        if (t.status === 'completed') completed++;
+        else pending++;
+        if (t.priority === 'high') high++;
+      });
+      if (taskPendingCount) taskPendingCount.textContent = pending;
+      if (taskCompletedCount) taskCompletedCount.textContent = completed;
+      if (taskPriorityCount) taskPriorityCount.textContent = high;
+
+      if (tasks.length === 0) {
+        tasksContainer.innerHTML = '<p style="color: var(--text-muted); padding: 12px 0;">No tasks stored yet. Add one above or tell the AI Assistant!</p>';
+        return;
+      }
+
+      tasksContainer.innerHTML = tasks.map(t => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: ${t.status === 'completed' ? 'var(--text-muted)' : '#fff'}; text-decoration: ${t.status === 'completed' ? 'line-through' : 'none'};">
+              ${t.title}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+              Due: <strong>${t.due_date || 'No date'}</strong> • Priority: <span style="color: ${t.priority === 'high' ? '#f87171' : t.priority === 'medium' ? '#fbbf24' : '#34d399'}; text-transform: uppercase;">${t.priority}</span> • Status: <em>${t.status}</em>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            ${t.status !== 'completed' ? `<button onclick="updateTaskStatus('${t.id}', 'completed')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(16,185,129,0.2); color: #34d399; cursor: pointer;">✓ Done</button>` : `<button onclick="updateTaskStatus('${t.id}', 'pending')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(156,163,175,0.2); color: #9ca3af; cursor: pointer;">↺ Reopen</button>`}
+            <button onclick="deleteTaskItem('${t.id}')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(239,68,68,0.2); color: #f87171; cursor: pointer;">✕</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      tasksContainer.innerHTML = `<p style="color: #ef4444;">Failed to load tasks: ${err.message}</p>`;
+    }
+  }
+
+  window.updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ status: newStatus }),
+      });
+      loadTasks();
+    } catch (e) {
+      alert('Error updating task');
+    }
+  };
+
+  window.deleteTaskItem = async (taskId) => {
+    if (!confirm('Delete this task?')) return;
+    try {
+      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      loadTasks();
+    } catch (e) {
+      alert('Error deleting task');
+    }
+  };
+
+  if (createTaskForm) {
+    createTaskForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('newTaskTitle').value.trim();
+      const dueDate = document.getElementById('newTaskDueDate').value;
+      const priority = document.getElementById('newTaskPriority').value;
+      if (!title) return;
+
+      try {
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ title, due_date: dueDate || null, priority }),
+        });
+        document.getElementById('newTaskTitle').value = '';
+        loadTasks();
+      } catch (err) {
+        alert('Failed to save task: ' + err.message);
+      }
+    });
+  }
+
+  // 8. Notes Management Functions
+  const notesContainer = document.getElementById('notesContainer');
+  const createNoteForm = document.getElementById('createNoteForm');
+  const searchNotesInput = document.getElementById('searchNotesInput');
+
+  async function loadNotes(searchTerm = '') {
+    if (!notesContainer) return;
+    try {
+      const url = searchTerm ? `/api/notes?query=${encodeURIComponent(searchTerm)}` : '/api/notes';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      const notes = data.notes || [];
+
+      if (notes.length === 0) {
+        notesContainer.innerHTML = '<p style="color: var(--text-muted); grid-column: 1 / -1; padding: 12px 0;">No notes found in Firestore.</p>';
+        return;
+      }
+
+      notesContainer.innerHTML = notes.map(n => `
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: #fff; margin-bottom: 6px;">
+              ${n.title || 'Untitled Note'}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap;">
+              ${n.content}
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-light);">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              ${(n.tags || []).map(tag => `<span style="font-size: 0.7rem; background: rgba(99,102,241,0.2); color: #a5b4fc; padding: 2px 6px; border-radius: 4px;">#${tag}</span>`).join('')}
+            </div>
+            <button onclick="deleteNoteItem('${n.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem;">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      notesContainer.innerHTML = `<p style="color: #ef4444;">Failed to load notes: ${err.message}</p>`;
+    }
+  }
+
+  window.deleteNoteItem = async (noteId) => {
+    if (!confirm('Delete this note?')) return;
+    try {
+      await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+      loadNotes();
+    } catch (e) {
+      alert('Error deleting note');
+    }
+  };
+
+  if (createNoteForm) {
+    createNoteForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('newNoteTitle').value.trim();
+      const content = document.getElementById('newNoteContent').value.trim();
+      const tagsStr = document.getElementById('newNoteTags').value.trim();
+      if (!content) return;
+
+      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim().toLowerCase()) : [];
+
+      try {
+        await fetch('/api/notes', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ content, title: title || null, tags }),
+        });
+        document.getElementById('newNoteTitle').value = '';
+        document.getElementById('newNoteContent').value = '';
+        document.getElementById('newNoteTags').value = '';
+        loadNotes();
+      } catch (err) {
+        alert('Failed to save note: ' + err.message);
+      }
+    });
+  }
+
+  if (searchNotesInput) {
+    let debounceTimer;
+    searchNotesInput.addEventListener('input', (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadNotes(e.target.value.trim());
+      }, 300);
+    });
+  }
+
+  // Preload tasks and notes
+  loadTasks();
+  loadNotes();
 
   // Auto-resize textarea
   userInput.addEventListener('keydown', (e) => {
