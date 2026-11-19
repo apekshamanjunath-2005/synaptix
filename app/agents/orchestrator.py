@@ -135,16 +135,26 @@ class MultiAgentOrchestrator:
             }
 
         except Exception as exc:
-            logger.error("ADK runner execution failed: %s", exc)
-            return {
-                "session_id": sid,
-                "reply": f"Coordinator encountered an issue during execution: {str(exc)}",
-                "orchestration": {
-                    "root_agent": "SynaptixCoordinator",
-                    "activated_agents": activated_agents,
-                    "error": str(exc),
-                },
-            }
+            logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
+            fallback = await self._deterministic_offline_delegation(user_input, sid)
+            err_str = str(exc)
+            if "402" in err_str or "prepayment" in err_str.lower():
+                banner = (
+                    "⚠️ **Google AI Studio 402 Notice:** The configured Gemini API key is linked to a project requiring prepayment credits. "
+                    "To use the 100% Free Tier (₹0), create a key using **'Create API key in new project'** at [Google AI Studio](https://aistudio.google.com/).\n\n"
+                    "---\n\n"
+                )
+            elif "429" in err_str or "quota" in err_str.lower():
+                banner = (
+                    "⚠️ **Rate Limit Notice:** Google AI Studio free tier rate limit reached. "
+                    "Serving request via zero-cost local agent engine.\n\n---\n\n"
+                )
+            else:
+                banner = f"⚠️ *Note: Live Gemini call encountered an issue ({err_str[:90]}). Fulfilled via zero-cost local engine:*\n\n---\n\n"
+
+            fallback["reply"] = banner + fallback["reply"]
+            fallback["orchestration"]["live_adk_error"] = str(exc)
+            return fallback
 
     async def _deterministic_offline_delegation(self, user_input: str, session_id: str) -> Dict[str, Any]:
         """
