@@ -10,6 +10,9 @@ env/
 credentials.json
 serviceAccountKey.json
 firebase-credentials.json
+.usage_cache.json
+*.cache
+
 
 # Python cache & artifacts
 __pycache__/
@@ -33,6 +36,10 @@ build/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Reference Codebase (Inspection Only)
+reference_neuroflow/
+
 
 # Logs
 *.log

@@ -6,9 +6,9 @@ Provides system telemetry, uptime, version, and budget usage metrics.
 import sys
 import time
 from datetime import datetime, timezone
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
 from app.config import get_settings
-from app.core.usage_tracker import usage_tracker
+from app.core.usage_tracker import usage_tracker, verify_budget_quota
 
 router = APIRouter(prefix="/api", tags=["Health & Diagnostics"])
 
@@ -46,3 +46,24 @@ async def get_health():
         },
         "budget_telemetry": usage_tracker.get_stats(),
     }
+
+
+@router.post("/test/quota-protected-action", dependencies=[Depends(verify_budget_quota)])
+async def quota_protected_action():
+    """
+    Simulated protected action (e.g. an LLM call).
+    Fails with HTTP 429 if the ₹0 quota limit has been exhausted.
+    """
+    usage_tracker.record_llm_request(tokens_used=150)
+    return {
+        "success": True,
+        "message": "Quota check passed. LLM request recorded.",
+        "telemetry": usage_tracker.get_stats(),
+    }
+
+
+@router.post("/test/reset-quota")
+async def reset_quota():
+    """Diagnostic endpoint to reset the test quota counter."""
+    usage_tracker.reset_counters_for_testing()
+    return {"success": True, "message": "Usage counters reset."}
