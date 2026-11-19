@@ -114,8 +114,9 @@ class MultiAgentOrchestrator:
 
                 # Collect final response text
                 if hasattr(event, "is_final_response") and event.is_final_response():
-                    if hasattr(event, "message") and event.message and hasattr(event.message, "content"):
-                        for part in event.message.content.parts:
+                    target_content = getattr(event, "content", None) or getattr(event, "message", None)
+                    if target_content and hasattr(target_content, "parts"):
+                        for part in target_content.parts:
                             if hasattr(part, "text") and part.text:
                                 response_parts.append(part.text)
 
