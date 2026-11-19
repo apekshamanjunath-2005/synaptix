@@ -1,6 +1,6 @@
 /**
  * Synaptix — Frontend Application Script
- * Handles navigation, telemetry polling, and chat interactions.
+ * Handles navigation, telemetry polling, and chat interactions with Gemini 2.5 Flash.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatForm = document.getElementById('chatForm');
   const userInput = document.getElementById('userInput');
   const chips = document.querySelectorAll('.chip');
+  const sendBtn = document.getElementById('sendBtn');
+
+  // Multi-turn conversation history
+  const conversationHistory = [];
 
   const tabMetadata = {
     chat: {
@@ -107,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (data.integrations_status) {
         const i = data.integrations_status;
-        if (telGemini) telGemini.textContent = i.gemini_configured ? 'Configured ✅' : 'Milestone 2 (Ready)';
+        if (telGemini) telGemini.textContent = i.gemini_configured ? 'Connected (Gemini 2.5 Flash) ✅' : 'Key Needed (Free Tier) 🔑';
         if (telFirestore) telFirestore.textContent = i.firebase_configured ? 'Connected ✅' : 'Milestone 4 (Pending)';
         if (telCalendar) telCalendar.textContent = i.google_calendar_configured ? 'Active ✅' : 'Milestone 5 (Pending)';
         if (telWeather) telWeather.textContent = i.weather_configured ? 'Active ✅' : 'Milestone 6 (Pending)';
@@ -128,54 +132,136 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchHealthTelemetry();
   setInterval(fetchHealthTelemetry, 10000);
 
-  // 3. Chat Helper Functions
-  function appendMessage(sender, text, isUser = false) {
+  // 3. Formatting helper for Markdown
+  function formatMarkdown(text) {
+    if (!text) return '';
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Code blocks ```code```
+    html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    // Inline code `code`
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Bold **text**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic *text*
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Markdown links [title](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    // Line breaks to <p> and <br>
+    return html.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+  }
+
+  // 4. Chat UI Helper Functions
+  function appendMessage(sender, text, isUser = false, isHtml = false) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
 
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const formattedContent = isHtml ? text : formatMarkdown(text);
+
     msgDiv.innerHTML = `
       <div class="message-avatar">${isUser ? '👤' : '🧠'}</div>
       <div class="message-body">
         <div class="message-sender">${isUser ? 'You' : sender}</div>
-        <div class="message-text"><p>${text}</p></div>
+        <div class="message-text"><p>${formattedContent}</p></div>
         <div class="message-time">${now}</div>
       </div>
     `;
 
     chatMessages.appendChild(msgDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    return msgDiv;
   }
 
-  // 4. Handle Chat Submit
-  chatForm.addEventListener('submit', (e) => {
+  function appendLoadingMessage() {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message assistant loading-msg';
+    msgDiv.innerHTML = `
+      <div class="message-avatar">🧠</div>
+      <div class="message-body">
+        <div class="message-sender">Synaptix AI</div>
+        <div class="message-text"><p><em>Synaptix is reasoning...</em> ⚡</p></div>
+      </div>
+    `;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return msgDiv;
+  }
+
+  // 5. Handle Chat Submission to /api/chat
+  chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = userInput.value.trim();
     if (!query) return;
 
+    // Append user message
     appendMessage('You', query, true);
     userInput.value = '';
+    userInput.disabled = true;
+    sendBtn.disabled = true;
 
-    // Simulated Coordinator response for Milestone 1
-    setTimeout(() => {
-      let reply = '';
-      const lower = query.toLowerCase();
+    // Append loading placeholder
+    const loadingElem = appendLoadingMessage();
 
-      if (lower.includes('health') || lower.includes('budget') || lower.includes('status')) {
-        reply = `<strong>Health & Budget Telemetry:</strong> Backend is running smoothly in <em>development</em> mode with strict <strong>₹0 Budget Safeguards</strong> enforced. Check the <a href="#" style="color:#818cf8;" onclick="document.querySelector('[data-tab=telemetry]').click()">Budget & Telemetry</a> tab for live statistics.`;
-      } else if (lower.includes('agent')) {
-        reply = `Synaptix is designed with 5 specialized agents:
-        <br>1. <strong>Coordinator Agent:</strong> Intent parsing & delegation.
-        <br>2. <strong>Task Agent:</strong> Task CRUD & priority management.
-        <br>3. <strong>Notes Agent:</strong> Notes storage & semantic search.
-        <br>4. <strong>Calendar Agent:</strong> Google Calendar MCP integration.
-        <br>5. <strong>Smart Day Planner:</strong> Timetable synthesis with weather & availability.`;
-      } else {
-        reply = `Got your request: <em>"${query}"</em>. In <strong>Milestone 2</strong>, this prompt will be sent directly to <strong>Google Gemini 2.5 Flash</strong> and parsed by the Coordinator Agent to trigger real tool actions!`;
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: query,
+          conversation_history: conversationHistory.slice(-6), // Keep last 6 context turns
+        }),
+      });
+
+      // Remove loading indicator
+      loadingElem.remove();
+
+      if (response.status === 429) {
+        const errData = await response.json();
+        const errDetail = errData.detail || {};
+        appendMessage(
+          'Synaptix Guard',
+          `⛔ **₹0 Budget Protection Triggered (HTTP 429)**\n\n${errDetail.message || 'Daily limit reached.'}`,
+          false
+        );
+        return;
       }
 
-      appendMessage('Synaptix Coordinator Agent', reply, false);
-    }, 400);
+      if (!response.ok) {
+        const errData = await response.json();
+        appendMessage(
+          'Synaptix Error',
+          `⚠️ Server responded with error (${response.status}): ${JSON.stringify(errData.detail || errData)}`,
+          false
+        );
+        return;
+      }
+
+      const data = await response.json();
+
+      // Append assistant reply
+      appendMessage('Synaptix AI (Gemini 2.5 Flash)', data.reply, false);
+
+      // Save to conversation history
+      conversationHistory.push({ role: 'user', content: query });
+      conversationHistory.push({ role: 'model', content: data.reply });
+
+      // Refresh telemetry
+      fetchHealthTelemetry();
+
+    } catch (err) {
+      loadingElem.remove();
+      appendMessage('Synaptix Error', `⚠️ Network error: Could not reach backend server (${err.message})`, false);
+    } finally {
+      userInput.disabled = false;
+      sendBtn.disabled = false;
+      userInput.focus();
+    }
   });
 
   // Handle quick chip clicks
