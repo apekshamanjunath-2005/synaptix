@@ -125,6 +125,7 @@
             <button class="chip" data-prompt="Check backend health and ₹0 quota">Check backend health & budget</button>
             <button class="chip" data-prompt="Show pending tasks">Show pending tasks</button>
             <button class="chip" data-prompt="Plan my day tomorrow">Plan my day tomorrow</button>
+            <button class="chip" id="clearChatBtn" style="color: #f87171; border-color: rgba(239, 68, 68, 0.3);">🗑️ Clear</button>
           </div>
 
           <!-- Chat Input -->
@@ -253,9 +254,10 @@
                 Synthesizes pending tasks from TaskAgent, scheduled events from CalendarAgent (MCP), and real-time weather from OpenWeatherMap.
               </p>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <button class="send-btn" id="planTodayBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">⚡ Plan Today</button>
               <button class="send-btn" id="planTomorrowBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; background: var(--bg-tertiary); border: 1px solid var(--border-color);">📅 Plan Tomorrow</button>
+              <button class="send-btn" id="copyPlanBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; background: var(--bg-elevated); border: 1px solid var(--border-color);">📋 Copy Plan</button>
             </div>
           </div>
         </div>
@@ -361,6 +363,9 @@
       </section>
     </main>
   </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script src="/static/js/app.js"></script>
 </body>

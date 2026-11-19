@@ -41,10 +41,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const userInput = document.getElementById('userInput');
   const chips = document.querySelectorAll('.chip');
   const sendBtn = document.getElementById('sendBtn');
+  const clearChatBtn = document.getElementById('clearChatBtn');
+  const copyPlanBtn = document.getElementById('copyPlanBtn');
+  const toastContainer = document.getElementById('toastContainer');
 
   // Session state
   let currentSessionId = null;
   const conversationHistory = [];
+  let latestPlanMarkdown = '';
+
+  // 0. Toast Notification System (Milestone 8)
+  function showToast(message, type = 'info', duration = 3500) {
+    if (!toastContainer) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icons = {
+      success: '✅',
+      error: '❌',
+      info: '💡',
+      warning: '⚠️'
+    };
+    toast.innerHTML = `<span>${icons[type] || '💡'}</span> <span>${message}</span>`;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 320);
+    }, duration);
+  }
 
   const tabMetadata = {
     chat: {
@@ -298,6 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
       conversationHistory.push({ role: 'user', content: query });
       conversationHistory.push({ role: 'model', content: data.reply });
 
+      // Auto-sync state views if specialized agent modified state
+      if (targetAgent === 'TaskAgent') loadTasks();
+      if (targetAgent === 'NotesAgent') loadNotes();
+      if (targetAgent === 'CalendarAgent') loadCalendarEvents();
+      if (targetAgent === 'SmartDayPlannerAgent') loadTimetable();
+
       // Refresh telemetry
       fetchHealthTelemetry();
 
@@ -378,9 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ status: newStatus }),
       });
+      showToast(`Task status updated: ${newStatus}`, 'success');
       loadTasks();
     } catch (e) {
-      alert('Error updating task');
+      showToast('Error updating task: ' + e.message, 'error');
     }
   };
 
@@ -388,9 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Delete this task?')) return;
     try {
       await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      showToast('Task deleted from Firestore', 'info');
       loadTasks();
     } catch (e) {
-      alert('Error deleting task');
+      showToast('Error deleting task: ' + e.message, 'error');
     }
   };
 
@@ -409,9 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({ title, due_date: dueDate || null, priority }),
         });
         document.getElementById('newTaskTitle').value = '';
+        showToast('Task created successfully!', 'success');
         loadTasks();
       } catch (err) {
-        alert('Failed to save task: ' + err.message);
+        showToast('Failed to save task: ' + err.message, 'error');
       }
     });
   }
@@ -461,9 +494,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Delete this note?')) return;
     try {
       await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+      showToast('Note deleted from Firestore', 'info');
       loadNotes();
     } catch (e) {
-      alert('Error deleting note');
+      showToast('Error deleting note: ' + e.message, 'error');
     }
   };
 
@@ -486,9 +520,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('newNoteTitle').value = '';
         document.getElementById('newNoteContent').value = '';
         document.getElementById('newNoteTags').value = '';
+        showToast('Note saved to Firestore!', 'success');
         loadNotes();
       } catch (err) {
-        alert('Failed to save note: ' + err.message);
+        showToast('Failed to save note: ' + err.message, 'error');
       }
     });
   }
@@ -547,9 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Cancel/Delete this calendar event?')) return;
     try {
       await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE' });
+      showToast('Event removed from Calendar', 'info');
       loadCalendarEvents();
     } catch (e) {
-      alert('Error deleting calendar event');
+      showToast('Error deleting calendar event: ' + e.message, 'error');
     }
   };
 
@@ -570,9 +606,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('newEventSummary').value = '';
         document.getElementById('newEventLocation').value = '';
+        showToast('Event scheduled via Calendar MCP!', 'success');
         loadCalendarEvents();
       } catch (err) {
-        alert('Failed to schedule event: ' + err.message);
+        showToast('Failed to schedule event: ' + err.message, 'error');
       }
     });
   }
@@ -711,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (!resp.ok) throw new Error('Planner fetch failed');
       const data = await resp.json();
+      latestPlanMarkdown = data.formatted_markdown || '';
 
       if (timetableStatusBadge) {
         timetableStatusBadge.textContent = `${data.scheduled_events_count} Meeting(s) • ${data.pending_tasks_count} Pending Task(s)`;
@@ -748,6 +786,43 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       timetableContainer.innerHTML = `<p style="color: #ef4444;">Error loading timetable: ${err.message}</p>`;
     }
+  }
+
+  // Clear Chat Button Handler
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+      chatMessages.innerHTML = `
+        <div class="message assistant">
+          <div class="message-avatar">🧠</div>
+          <div class="message-body">
+            <div class="message-sender">Synaptix Coordinator Agent</div>
+            <div class="message-text">
+              <p>Chat cleared! Ready for new tasks, notes, or scheduling instructions.</p>
+            </div>
+            <div class="message-time">Just now</div>
+          </div>
+        </div>
+      `;
+      conversationHistory.length = 0;
+      currentSessionId = null;
+      showToast('Chat history cleared', 'info');
+    });
+  }
+
+  // Copy Daily Plan Button Handler
+  if (copyPlanBtn) {
+    copyPlanBtn.addEventListener('click', async () => {
+      if (!latestPlanMarkdown) {
+        showToast('No daily plan generated yet to copy', 'warning');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(latestPlanMarkdown);
+        showToast('Daily plan copied to clipboard!', 'success');
+      } catch (e) {
+        showToast('Failed to copy plan: ' + e.message, 'error');
+      }
+    });
   }
 
   // Preload calendar events
