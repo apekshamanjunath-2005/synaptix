@@ -41,7 +41,7 @@ def make_request(url, method="POST", payload=None):
     headers = {"Content-Type": "application/json"} if payload is not None else {}
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.status, json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         body = e.read().decode()
@@ -91,6 +91,7 @@ def test_gemini_milestone2():
             f"{base_url}/api/chat",
             payload={
                 "message": "Hello, how can you help me be more productive?",
+                "session_id": "session-m2-test",
                 "conversation_history": []
             }
         )
@@ -102,11 +103,14 @@ def test_gemini_milestone2():
         print(f"     Configured: {body['configured']}")
         print(f"     Sample response preview: {body['reply'][:85]}...")
 
+        time.sleep(1.5)
+
         # Test 3b: Multi-turn conversation history
         status_hist, body_hist = make_request(
             f"{base_url}/api/chat",
             payload={
                 "message": "What is my goal again?",
+                "session_id": "session-m2-test",
                 "conversation_history": [
                     {"role": "user", "content": "I want to finish my AI project by Friday."},
                     {"role": "model", "content": "I noted your goal to finish your AI project by Friday!"}

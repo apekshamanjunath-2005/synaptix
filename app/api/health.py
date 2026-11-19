@@ -43,6 +43,7 @@ async def get_health():
             "firebase_configured": bool(settings.FIREBASE_PROJECT_ID),
             "google_calendar_configured": bool(settings.GOOGLE_CALENDAR_CLIENT_ID),
             "weather_configured": bool(settings.OPENWEATHERMAP_API_KEY),
+            "gmail_configured": bool(settings.GOOGLE_CALENDAR_CLIENT_ID),
         },
         "budget_telemetry": usage_tracker.get_stats(),
     }

@@ -20,6 +20,7 @@ TEST_SUITES = [
     ("Milestone 6 — OpenWeatherMap Integration & Outdoor Engine", "tests/test_milestone6.py"),
     ("Milestone 7 — Smart Day Planner Multi-Agent Synthesis", "tests/test_milestone7.py"),
     ("Milestone 8 — UI & Glassmorphism Dashboard Experience", "tests/test_milestone8.py"),
+    ("Gmail Agent — Human-in-the-Loop Email System", "tests/test_gmail_agent.py"),
 ]
 
 

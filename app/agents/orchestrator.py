@@ -27,6 +27,9 @@ from app.agents.tools import (
     get_current_weather,
     get_today_date,
     get_tomorrow_date,
+    email_draft_create,
+    email_draft_send,
+    email_draft_list,
 )
 
 logger = logging.getLogger("synaptix.agents.orchestrator")
@@ -130,6 +133,7 @@ class MultiAgentOrchestrator:
                     "reply": final_text,
                     "orchestration": {
                         "root_agent": "SynaptixCoordinator",
+                        "activated_agent": activated_agents[-1] if activated_agents else "SynaptixCoordinator",
                         "activated_agents": activated_agents or ["SynaptixCoordinator"],
                         "tools_executed": tools_executed,
                         "delegation_mode": "google_adk_live",
@@ -207,6 +211,73 @@ class MultiAgentOrchestrator:
 💡 **AI RECOMMENDATIONS**
 • Dedicate 09:00 - 11:30 for high-priority task completion before lunch.
 • Block 30 minutes in the afternoon for reviewing and capturing project notes."""
+
+        # ROUTING RULE 2: Email Intent (Human-in-the-Loop Draft -> Approve -> Send)
+        elif any(kw in lower for kw in ["email", "mail", "draft", "compose", "approve and send", "approve draft", "send the draft"]):
+            activated_agent = "GmailAgent"
+            # Check for explicit user approval to send an existing draft
+            if any(kw in lower for kw in ["approve and send", "approve draft", "send the draft", "approved send", "approve", "send it", "looks good send", "send draft"]):
+                import re
+                match = re.search(r"draft-[a-f0-9]+", lower)
+                draft_id = match.group(0) if match else None
+                if not draft_id:
+                    drafts_data = json.loads(email_draft_list())
+                    drafts = drafts_data.get("drafts", [])
+                    pending = [d for d in drafts if d.get("status") == "draft"]
+                    if pending:
+                        draft_id = pending[0].get("draft_id") or pending[0].get("id")
+
+                if draft_id:
+                    send_res = json.loads(email_draft_send(draft_id=draft_id))
+                    tools_called.append("email_draft_send")
+                    if send_res.get("success"):
+                        reply = (
+                            f"🚀 **Email Dispatched Successfully! (via GmailAgent)**\n\n"
+                            f"• **Draft ID:** `{draft_id}`\n"
+                            f"• **Status:** Sent\n"
+                            f"• **Destination:** {send_res.get('result', {}).get('to', 'Recipient')}\n"
+                            f"• **Mode:** {'Live Gmail API' if send_res.get('result', {}).get('is_live_gmail') else 'Zero-Cost Local Adapter'}\n\n"
+                            f"Your email has been safely delivered."
+                        )
+                    else:
+                        reply = f"❌ **Dispatch Failed:** {send_res.get('error', 'Unable to send draft.')}"
+                else:
+                    reply = "⚠️ No pending draft ID found to send. Please specify the draft ID, e.g., 'Approve and send draft [draft-id]'."
+            else:
+                # Drafting step: create complete preview and pause for user approval
+                to_target = "recipient@example.com"
+                if " to " in lower:
+                    parts = user_input.split(" to ", 1)[1].split(" about ", 1)
+                    to_target = parts[0].strip()
+                elif "email " in lower:
+                    to_target = user_input.split("email ", 1)[1].split(" ", 1)[0].strip()
+
+                subject = f"Follow-up: {user_input[:40]}"
+                body = (
+                    f"Hi {to_target.split('@')[0].title()},\n\n"
+                    f"I hope you're having a productive week.\n\n"
+                    f"Regarding our discussion:\n"
+                    f"• {user_input}\n\n"
+                    f"Please let me know if this works for you or if you need any adjustments.\n\n"
+                    f"Best regards,\nSynaptix AI Assistant"
+                )
+                draft_res = json.loads(email_draft_create(to=to_target, subject=subject, body=body))
+                tools_called.append("email_draft_create")
+                d = draft_res.get("draft", {})
+                d_id = d.get("draft_id", "draft-101")
+                reply = (
+                    f"📧 **Email Draft Created (GmailAgent)**\n\n"
+                    f"• **To:** {d.get('to', to_target)}\n"
+                    f"• **Subject:** {d.get('subject', subject)}\n"
+                    f"• **Draft ID:** `{d_id}`\n\n"
+                    f"---\n"
+                    f"{d.get('body', body)}\n"
+                    f"---\n\n"
+                    f"⚠️ **Human-in-the-Loop Approval Required:**\n"
+                    f"Please review the draft above. To dispatch this email, reply with:\n"
+                    f"👉 **`Approve and send draft {d_id}`** (or *'looks good, send it'*).\n\n"
+                    f"If you'd like to adjust the tone, subject, or details, let me know what changes to make!"
+                )
 
         # ROUTING RULE 2: Task Intent
         elif any(kw in lower for kw in ["task", "todo", "remind me", "pending", "complete task"]):

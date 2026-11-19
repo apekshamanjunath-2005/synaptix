@@ -17,6 +17,9 @@ firebase-key.json.json
 .usage_cache.json
 .firestore_local.json
 .calendar_local.json
+.gmail_local.json
+token.json
+*token*.json
 *.cache
 
 

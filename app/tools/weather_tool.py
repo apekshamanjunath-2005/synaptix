@@ -21,14 +21,20 @@ logger = logging.getLogger("synaptix.tools.weather")
 OWM_API_BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 
+_USE_CONFIG_DEFAULT = object()
+
+
 class WeatherTool:
     """
     OpenWeatherMap tool provider with live HTTP and graceful zero-cost fallback modes.
     """
 
-    def __init__(self, api_key: Optional[str] = None, default_city: Optional[str] = None):
+    def __init__(self, api_key: Any = _USE_CONFIG_DEFAULT, default_city: Optional[str] = None):
         settings = get_settings()
-        self.api_key = api_key if api_key is not None else settings.OPENWEATHERMAP_API_KEY
+        if api_key is _USE_CONFIG_DEFAULT:
+            self.api_key = settings.OPENWEATHERMAP_API_KEY
+        else:
+            self.api_key = api_key
         self.default_city = default_city or settings.DEFAULT_CITY or "Bengaluru"
 
     def _assess_outdoor_suitability(self, condition: str, temp_c: float, wind_kmh: float) -> tuple[bool, str]:

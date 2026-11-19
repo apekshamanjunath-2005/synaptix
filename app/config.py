@@ -23,9 +23,14 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
 
-    # Google Calendar MCP (Configured in Milestone 5)
+    # Google Calendar & Gmail OAuth (synaptix-68373)
     GOOGLE_CALENDAR_CLIENT_ID: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_TOKEN_PATH: str = "token.json"
+    GOOGLE_OAUTH_SCOPES: list[str] = [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/gmail.compose",
+    ]
 
     # OpenWeatherMap API (Configured in Milestone 6)
     OPENWEATHERMAP_API_KEY: Optional[str] = None

@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 
 from app.database.firestore import firestore_service
+from app.tools.gmail_service import gmail_service
 
 logger = logging.getLogger("synaptix.agents.tools")
 
@@ -386,4 +387,67 @@ def get_current_weather(city: str = "Bengaluru") -> str:
             "activity_recommendation": "Weather data currently unavailable; assuming mild conditions.",
             "error": str(e)
         })
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 5. GMAIL AGENT TOOLS (Human-in-the-Loop Email Drafting & Dispatch)
+# ════════════════════════════════════════════════════════════════════════════════
+
+def email_draft_create(to: str, subject: str, body: str) -> str:
+    """
+    Create an email draft with recipient, subject, and body.
+    Does NOT send the email. Always call this tool first and present the complete
+    draft preview (To, Subject, Body, Draft ID) to the user for explicit confirmation
+    before dispatching.
+
+    Args:
+        to: Email address or recipient name.
+        subject: Subject line of the email.
+        body: Complete, well-structured email body text.
+
+    Returns:
+        JSON string confirming draft creation with draft_id and status='draft'.
+    """
+    try:
+        draft = gmail_service.create_email_draft(to=to, subject=subject, body=body)
+        return json.dumps({"success": True, "action": "draft_created", "draft": draft})
+    except Exception as exc:
+        logger.error("Error creating email draft: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+def email_draft_send(draft_id: str) -> str:
+    """
+    Send an existing email draft after receiving explicit user confirmation.
+    CRITICAL: NEVER call this tool without explicit user approval ('send it',
+    'approve draft', etc.).
+
+    Args:
+        draft_id: Unique identifier of the draft to send (e.g. 'draft-abc123' or Gmail draft ID).
+
+    Returns:
+        JSON string confirming dispatch status.
+    """
+    try:
+        result = gmail_service.send_email_draft(draft_id=draft_id)
+        return json.dumps({"success": result.get("sent", False), "action": "draft_sent", "result": result})
+    except Exception as exc:
+        logger.error("Error sending email draft %s: %s", draft_id, exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+def email_draft_list() -> str:
+    """
+    List existing email drafts and their statuses ('draft', 'sent').
+
+    Returns:
+        JSON string containing the list of drafts.
+    """
+    try:
+        drafts = gmail_service.list_drafts()
+        return json.dumps({"success": True, "count": len(drafts), "drafts": drafts})
+    except Exception as exc:
+        logger.error("Error listing email drafts: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
 
