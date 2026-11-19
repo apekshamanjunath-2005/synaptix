@@ -1,16 +1,17 @@
 /**
- * Synaptix — Frontend Application Script (Milestone 3 — Multi-Agent System)
- * Handles navigation, telemetry polling, agent status chips, and real-time agent delegation.
+ * Synaptix — Frontend Application Script
+ * Minimalist Dark Aura Aesthetic & Multi-Agent Orchestration
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Elements
+  // Navigation elements
   const navItems = document.querySelectorAll('.nav-item');
   const tabPanes = document.querySelectorAll('.tab-pane');
   const currentTabTitle = document.getElementById('currentTabTitle');
   const currentTabDesc = document.getElementById('currentTabDesc');
-  const statusText = document.getElementById('statusText');
-  const serverStatusBadge = document.getElementById('serverStatusBadge');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebarToggle');
+  const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
 
   // Agent chips
   const agentChips = {
@@ -18,10 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
     TaskAgent: document.querySelector('.agent-chip[title*="Task Agent"]'),
     NotesAgent: document.querySelector('.agent-chip[title*="Notes Agent"]'),
     CalendarAgent: document.querySelector('.agent-chip[title*="Calendar Agent"]'),
+    GmailAgent: document.querySelector('.agent-chip[title*="Gmail Agent"]'),
     SmartDayPlannerAgent: document.querySelector('.agent-chip[title*="Planner Agent"]'),
   };
 
-  // Telemetry elements
+  // Telemetry elements (Background compatibility)
   const telStatus = document.getElementById('telStatus');
   const telUptime = document.getElementById('telUptime');
   const telPython = document.getElementById('telPython');
@@ -34,12 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const telFirestore = document.getElementById('telFirestore');
   const telCalendar = document.getElementById('telCalendar');
   const telWeather = document.getElementById('telWeather');
+  const statusText = document.getElementById('statusText');
+  const serverStatusBadge = document.getElementById('serverStatusBadge');
 
   // Chat elements
+  const chatContainer = document.getElementById('chatContainer');
   const chatMessages = document.getElementById('chatMessages');
   const chatForm = document.getElementById('chatForm');
   const userInput = document.getElementById('userInput');
-  const chips = document.querySelectorAll('.chip');
+  const modeSelect = document.getElementById('modeSelect');
+  const chips = document.querySelectorAll('.chip[data-prompt]');
   const sendBtn = document.getElementById('sendBtn');
   const clearChatBtn = document.getElementById('clearChatBtn');
   const copyPlanBtn = document.getElementById('copyPlanBtn');
@@ -50,18 +56,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const conversationHistory = [];
   let latestPlanMarkdown = '';
 
-  // 0. Toast Notification System (Milestone 8)
+  // ══════════════════════════════════════════════════════════════════════════
+  // 1. TOAST NOTIFICATION SYSTEM
+  // ══════════════════════════════════════════════════════════════════════════
   function showToast(message, type = 'info', duration = 3500) {
     if (!toastContainer) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     const icons = {
-      success: '✅',
-      error: '❌',
-      info: '💡',
+      success: '✓',
+      error: '✕',
+      info: '✨',
       warning: '⚠️'
     };
-    toast.innerHTML = `<span>${icons[type] || '💡'}</span> <span>${message}</span>`;
+    toast.innerHTML = `<span style="font-weight:700;">${icons[type] || '•'}</span> <span>${message}</span>`;
     toastContainer.appendChild(toast);
 
     setTimeout(() => {
@@ -70,34 +78,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }, duration);
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 2. SIDEBAR COLLAPSE & MOBILE DRAWER
+  // ══════════════════════════════════════════════════════════════════════════
+  if (sidebarToggle && sidebar) {
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+    });
+  }
+
+  if (mobileSidebarToggle && sidebar) {
+    mobileSidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('mobile-open');
+    });
+  }
+
+  // Close mobile sidebar on backdrop click
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('mobile-open')) {
+      if (!sidebar.contains(e.target) && !mobileSidebarToggle.contains(e.target)) {
+        sidebar.classList.remove('mobile-open');
+      }
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 3. TAB NAVIGATION
+  // ══════════════════════════════════════════════════════════════════════════
   const tabMetadata = {
     chat: {
-      title: 'AI Multi-Agent Coordinator',
-      desc: 'Orchestrating TaskAgent, NotesAgent, CalendarAgent, and SmartDayPlannerAgent.',
+      title: 'AI Assistant',
+      desc: 'Natural language coordinator orchestrating tasks, calendar, email, and planning.',
     },
     tasks: {
-      title: 'Tasks Management (TaskAgent)',
-      desc: 'View, track, and manage priorities, due dates, and pending items.',
+      title: 'Tasks',
+      desc: 'Manage priorities, deadlines, and pending action items in Firestore.',
     },
     notes: {
-      title: 'Personal & Project Notes (NotesAgent)',
-      desc: 'Contextual notes, ideas, and meeting summaries with semantic search.',
+      title: 'Notes',
+      desc: 'Capture thoughts, meeting summaries, and search stored notes.',
     },
     calendar: {
-      title: 'Google Calendar Schedule (CalendarAgent)',
-      desc: 'Real-time calendar events, meeting detection, and conflict prevention via MCP.',
+      title: 'Calendar',
+      desc: 'Schedule commitments and check timeslot availability via Google Calendar MCP.',
+    },
+    gmail: {
+      title: 'Gmail Drafts',
+      desc: 'Human-in-the-Loop email system: review and approve drafts before sending.',
     },
     planner: {
-      title: 'Smart Day Planner (PlannerAgent)',
-      desc: 'AI-generated daily schedules balancing your tasks, calendar events, and weather.',
+      title: 'Smart Planner',
+      desc: 'Daily schedule synthesis balancing pending tasks, calendar events, and weather.',
     },
     telemetry: {
-      title: '₹0 Budget & System Telemetry',
-      desc: 'Live backend telemetry, uptime monitor, and strict zero-cost safety limits.',
+      title: 'Telemetry',
+      desc: 'Backend health monitor.',
     },
   };
 
-  // 1. Navigation Tab Switching
   navItems.forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetTab = btn.getAttribute('data-tab');
@@ -114,9 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTabDesc.textContent = tabMetadata[targetTab].desc;
       }
 
+      if (window.innerWidth <= 768 && sidebar) {
+        sidebar.classList.remove('mobile-open');
+      }
+
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
       if (targetTab === 'calendar') loadCalendarEvents();
+      if (targetTab === 'gmail') loadDrafts();
       if (targetTab === 'planner') {
         loadWeather();
         loadTimetable();
@@ -124,7 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 2. Health & Telemetry Polling
+  // ══════════════════════════════════════════════════════════════════════════
+  // 4. HEALTH TELEMETRY POLLING (Silent Background Safeguard)
+  // ══════════════════════════════════════════════════════════════════════════
   async function fetchHealthTelemetry() {
     try {
       const response = await fetch('/api/health');
@@ -132,16 +177,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json();
 
-      // Update sidebar status
-      statusText.textContent = 'Server Online (200 OK)';
-      const indicator = serverStatusBadge.querySelector('.status-indicator');
-      indicator.className = 'status-indicator online';
+      if (statusText) statusText.textContent = 'Server Online (200 OK)';
+      if (serverStatusBadge) {
+        const ind = serverStatusBadge.querySelector('.status-indicator');
+        if (ind) ind.className = 'status-indicator online';
+      }
 
-      // Update telemetry panel
       if (telStatus) telStatus.textContent = data.status.toUpperCase();
       if (telUptime) telUptime.textContent = `${data.uptime_seconds}s`;
-      if (telPython) telPython.textContent = data.runtime.python_version;
-      if (telEnv) telEnv.textContent = data.environment;
+      if (telPython) telPython.textContent = data.runtime ? data.runtime.python_version : '-';
+      if (telEnv) telEnv.textContent = data.environment || 'development';
 
       if (data.budget_telemetry) {
         const b = data.budget_telemetry;
@@ -150,51 +195,69 @@ document.addEventListener('DOMContentLoaded', () => {
         if (telRemaining) telRemaining.textContent = b.remaining_daily_requests;
         if (telTokens) telTokens.textContent = b.total_tokens_consumed;
       }
-
-      if (data.integrations_status) {
-        const i = data.integrations_status;
-        if (telGemini) telGemini.textContent = i.gemini_configured ? 'Google ADK + Gemini 2.5 Flash ✅' : 'Google ADK Active (₹0 Local Mode) ✅';
-        if (telFirestore) telFirestore.textContent = i.firebase_configured ? 'Firestore Live (Firebase Spark) ✅' : 'Firestore Local Engine (₹0 Safe) ✅';
-        if (telCalendar) telCalendar.textContent = i.google_calendar_configured ? 'Google Calendar Live API ✅' : 'Calendar MCP Engine (₹0 Safe) ✅';
-        if (telWeather) telWeather.textContent = i.weather_configured ? 'OpenWeatherMap Live API ✅' : 'Weather Provider (₹0 Safe) ✅';
-      }
     } catch (err) {
-      statusText.textContent = 'Backend Offline';
-      const indicator = serverStatusBadge.querySelector('.status-indicator');
-      indicator.className = 'status-indicator offline';
-      if (telStatus) {
-        telStatus.textContent = 'OFFLINE';
-        telStatus.className = '';
-        telStatus.style.color = '#ef4444';
+      if (statusText) statusText.textContent = 'Backend Offline';
+      if (serverStatusBadge) {
+        const ind = serverStatusBadge.querySelector('.status-indicator');
+        if (ind) ind.className = 'status-indicator offline';
       }
+      if (telStatus) telStatus.textContent = 'OFFLINE';
     }
   }
 
-  // Poll health immediately and every 10 seconds
   fetchHealthTelemetry();
-  setInterval(fetchHealthTelemetry, 10000);
+  setInterval(fetchHealthTelemetry, 15000);
 
-  // 3. Highlight active agent chip in UI
+  // ══════════════════════════════════════════════════════════════════════════
+  // 5. AGENT ROSTER HIGHLIGHTING
+  // ══════════════════════════════════════════════════════════════════════════
   function highlightAgent(agentName) {
-    // Reset all chips to standby
-    Object.values(agentChips).forEach(chip => {
-      if (chip) {
-        chip.className = 'agent-chip standby';
-      }
+    Object.values(agentChips).forEach((chip) => {
+      if (chip) chip.className = 'agent-chip standby';
     });
-
-    // Always keep Coordinator visible
     if (agentChips.Coordinator) {
       agentChips.Coordinator.className = 'agent-chip active';
     }
-
-    // Highlight specialized agent
     if (agentName && agentChips[agentName]) {
       agentChips[agentName].className = 'agent-chip active';
     }
   }
 
-  // 4. Formatting helper for Markdown
+  // ══════════════════════════════════════════════════════════════════════════
+  // 6. MODE SELECTOR DROPDOWN
+  // ══════════════════════════════════════════════════════════════════════════
+  const modePlaceholders = {
+    auto: 'How can I help you?',
+    gmail: 'Draft an email to [person] about [topic]...',
+    tasks: 'Add high-priority task [title] due [date]...',
+    notes: 'Capture note: [title or content]...',
+    calendar: 'Schedule a meeting with [person] tomorrow at 3pm...',
+    planner: 'Plan my day today based on tasks and meetings...',
+  };
+
+  const modeAgentMap = {
+    auto: 'Coordinator',
+    gmail: 'GmailAgent',
+    tasks: 'TaskAgent',
+    notes: 'NotesAgent',
+    calendar: 'CalendarAgent',
+    planner: 'SmartDayPlannerAgent',
+  };
+
+  if (modeSelect) {
+    modeSelect.addEventListener('change', () => {
+      const mode = modeSelect.value;
+      if (userInput) {
+        userInput.placeholder = modePlaceholders[mode] || 'How can I help you?';
+        userInput.focus();
+      }
+      highlightAgent(modeAgentMap[mode] || 'Coordinator');
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 7. MARKDOWN FORMATTER
+  // ══════════════════════════════════════════════════════════════════════════
   function formatMarkdown(text) {
     if (!text) return '';
     let html = text
@@ -202,31 +265,48 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Code blocks ```code```
+    // Fenced code blocks
     html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    // Inline code `code`
+    // Inline code
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // Bold **text**
+    // Bold
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // Italic *text*
+    // Italic
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    // Markdown links [title](url)
+    // Links
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    // Line breaks to <p> and <br>
+    // Line breaks
     return html.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
   }
 
-  // 5. Chat UI Helper Functions
+  // ══════════════════════════════════════════════════════════════════════════
+  // 8. CHAT ENGINE & HERO-TO-DOCKED TRANSITION
+  // ══════════════════════════════════════════════════════════════════════════
+  function updateChatDockState() {
+    if (!chatContainer) return;
+    const hasMessages = chatMessages && chatMessages.children.length > 0;
+    if (hasMessages) {
+      chatContainer.classList.remove('is-hero');
+      chatContainer.classList.add('is-docked');
+    } else {
+      chatContainer.classList.add('is-hero');
+      chatContainer.classList.remove('is-docked');
+    }
+  }
+
   function appendMessage(sender, text, isUser = false, agentBadge = null) {
+    if (!chatMessages) return null;
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
 
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const formattedContent = formatMarkdown(text);
-    const badgeHtml = agentBadge ? `<span style="display:inline-block; margin-left:8px; font-size:0.72rem; padding:2px 8px; border-radius:12px; background:rgba(99,102,241,0.25); color:#a5b4fc;">⚡ Delegated to: ${agentBadge}</span>` : '';
+    const badgeHtml = agentBadge && !isUser
+      ? `<span style="display:inline-block; margin-left:6px; font-size:0.7rem; padding:1px 7px; border-radius:10px; background:rgba(59,130,246,0.18); color:#93c5fd; border:1px solid rgba(59,130,246,0.3);">⚡ ${agentBadge}</span>`
+      : '';
 
     msgDiv.innerHTML = `
-      <div class="message-avatar">${isUser ? '👤' : '🧠'}</div>
+      <div class="message-avatar">${isUser ? '👤' : '✨'}</div>
       <div class="message-body">
         <div class="message-sender">${isUser ? 'You' : sender} ${badgeHtml}</div>
         <div class="message-text"><p>${formattedContent}</p></div>
@@ -235,122 +315,151 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     chatMessages.appendChild(msgDiv);
+    updateChatDockState();
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return msgDiv;
   }
 
   function appendLoadingMessage() {
+    if (!chatMessages) return null;
     const msgDiv = document.createElement('div');
     msgDiv.className = 'message assistant loading-msg';
     msgDiv.innerHTML = `
-      <div class="message-avatar">🧠</div>
+      <div class="message-avatar">✨</div>
       <div class="message-body">
-        <div class="message-sender">Synaptix Coordinator</div>
-        <div class="message-text"><p><em>Analyzing intent & delegating to specialist agent...</em> ⚡</p></div>
+        <div class="message-sender">Synaptix AI</div>
+        <div class="message-text"><p style="color:var(--text-secondary);font-style:italic;">Synthesizing request...</p></div>
       </div>
     `;
     chatMessages.appendChild(msgDiv);
+    updateChatDockState();
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return msgDiv;
   }
 
-  // 6. Handle Chat Submission to /api/chat
-  chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const query = userInput.value.trim();
-    if (!query) return;
+  // Chat Submission
+  if (chatForm) {
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = userInput.value.trim();
+      if (!query) return;
 
-    // Append user message
-    appendMessage('You', query, true);
-    userInput.value = '';
-    userInput.disabled = true;
-    sendBtn.disabled = true;
+      // Append user message & dock chat
+      appendMessage('You', query, true);
+      userInput.value = '';
+      userInput.disabled = true;
+      sendBtn.disabled = true;
 
-    // Append loading placeholder
-    const loadingElem = appendLoadingMessage();
+      const loadingElem = appendLoadingMessage();
 
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: query,
-          session_id: currentSessionId,
-          conversation_history: conversationHistory.slice(-6),
-        }),
-      });
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: query,
+            session_id: currentSessionId,
+            conversation_history: conversationHistory.slice(-6),
+          }),
+        });
 
-      // Remove loading indicator
-      loadingElem.remove();
+        if (loadingElem) loadingElem.remove();
 
-      if (response.status === 429) {
-        const errData = await response.json();
-        const errDetail = errData.detail || {};
-        appendMessage(
-          'Synaptix Guard',
-          `⛔ **₹0 Budget Protection Triggered (HTTP 429)**\n\n${errDetail.message || 'Daily limit reached.'}`,
-          false
-        );
-        return;
+        if (response.status === 429) {
+          const errData = await response.json();
+          appendMessage(
+            'Synaptix Guard',
+            `⛔ **Daily Free-Tier Quota Limit Reached (HTTP 429)**\n\n${(errData.detail && errData.detail.message) || 'Operation paused to guarantee zero costs.'}`,
+            false
+          );
+          return;
+        }
+
+        if (!response.ok) {
+          const errData = await response.json();
+          appendMessage(
+            'Synaptix Error',
+            `⚠️ Error (${response.status}): ${JSON.stringify(errData.detail || errData)}`,
+            false
+          );
+          return;
+        }
+
+        const data = await response.json();
+        currentSessionId = data.session_id || currentSessionId;
+
+        const orch = data.orchestration || {};
+        const targetAgent = orch.activated_agent || (orch.activated_agents && orch.activated_agents[orch.activated_agents.length - 1]) || 'Coordinator';
+
+        highlightAgent(targetAgent);
+        appendMessage('Synaptix AI', data.reply, false, targetAgent);
+
+        conversationHistory.push({ role: 'user', content: query });
+        conversationHistory.push({ role: 'model', content: data.reply });
+
+        // Auto-refresh relevant views
+        if (targetAgent === 'TaskAgent' || query.toLowerCase().includes('task')) loadTasks();
+        if (targetAgent === 'NotesAgent' || query.toLowerCase().includes('note')) loadNotes();
+        if (targetAgent === 'CalendarAgent' || query.toLowerCase().includes('calendar') || query.toLowerCase().includes('meeting')) loadCalendarEvents();
+        if (targetAgent === 'GmailAgent' || query.toLowerCase().includes('email') || query.toLowerCase().includes('draft')) loadDrafts();
+        if (targetAgent === 'SmartDayPlannerAgent' || query.toLowerCase().includes('plan')) loadTimetable();
+
+      } catch (err) {
+        if (loadingElem) loadingElem.remove();
+        appendMessage('Synaptix Error', `⚠️ Could not reach backend: ${err.message}`, false);
+      } finally {
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
       }
+    });
+  }
 
-      if (!response.ok) {
-        const errData = await response.json();
-        appendMessage(
-          'Synaptix Error',
-          `⚠️ Server responded with error (${response.status}): ${JSON.stringify(errData.detail || errData)}`,
-          false
-        );
-        return;
-      }
-
-      const data = await response.json();
-      currentSessionId = data.session_id || currentSessionId;
-
-      const orch = data.orchestration || {};
-      const targetAgent = orch.activated_agent || (orch.activated_agents && orch.activated_agents[orch.activated_agents.length - 1]) || "Coordinator";
-
-      // Dynamically highlight active agent in header
-      highlightAgent(targetAgent);
-
-      // Append assistant reply with agent badge
-      appendMessage('Synaptix AI', data.reply, false, targetAgent);
-
-      // Save to conversation history
-      conversationHistory.push({ role: 'user', content: query });
-      conversationHistory.push({ role: 'model', content: data.reply });
-
-      // Auto-sync state views if specialized agent modified state
-      if (targetAgent === 'TaskAgent') loadTasks();
-      if (targetAgent === 'NotesAgent') loadNotes();
-      if (targetAgent === 'CalendarAgent') loadCalendarEvents();
-      if (targetAgent === 'SmartDayPlannerAgent') loadTimetable();
-
-      // Refresh telemetry
-      fetchHealthTelemetry();
-
-    } catch (err) {
-      loadingElem.remove();
-      appendMessage('Synaptix Error', `⚠️ Network error: Could not reach backend server (${err.message})`, false);
-    } finally {
-      userInput.disabled = false;
-      sendBtn.disabled = false;
-      userInput.focus();
-    }
-  });
-
-  // Handle quick chip clicks
+  // Suggestion Chips
   chips.forEach((chip) => {
     chip.addEventListener('click', () => {
       const prompt = chip.getAttribute('data-prompt');
-      userInput.value = prompt;
-      chatForm.dispatchEvent(new Event('submit'));
+      if (userInput) {
+        userInput.value = prompt;
+        userInput.focus();
+        if (!prompt.endsWith(' ') && !prompt.endsWith(':')) {
+          chatForm.dispatchEvent(new Event('submit'));
+        }
+      }
     });
   });
 
-  // 7. Tasks Management Functions
+  // Clear Chat Button Handler
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+      if (chatMessages) chatMessages.innerHTML = '';
+      conversationHistory.length = 0;
+      currentSessionId = null;
+      updateChatDockState();
+      highlightAgent('Coordinator');
+      showToast('Conversation cleared', 'info');
+    });
+  }
+
+  // Copy Plan Button Handler
+  if (copyPlanBtn) {
+    copyPlanBtn.addEventListener('click', async () => {
+      if (!latestPlanMarkdown) {
+        showToast('No daily plan generated yet to copy', 'warning');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(latestPlanMarkdown);
+        showToast('Daily plan copied to clipboard!', 'success');
+      } catch (e) {
+        showToast('Failed to copy plan: ' + e.message, 'error');
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 9. TASKS MANAGEMENT (Firestore)
+  // ══════════════════════════════════════════════════════════════════════════
   const tasksContainer = document.getElementById('tasksContainer');
   const createTaskForm = document.getElementById('createTaskForm');
   const taskPendingCount = document.getElementById('taskPendingCount');
@@ -364,9 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await resp.json();
       const tasks = data.tasks || [];
 
-      // Update stats
       let pending = 0, completed = 0, high = 0;
-      tasks.forEach(t => {
+      tasks.forEach((t) => {
         if (t.status === 'completed') completed++;
         else pending++;
         if (t.priority === 'high') high++;
@@ -376,28 +484,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if (taskPriorityCount) taskPriorityCount.textContent = high;
 
       if (tasks.length === 0) {
-        tasksContainer.innerHTML = '<p style="color: var(--text-muted); padding: 12px 0;">No tasks stored yet. Add one above or tell the AI Assistant!</p>';
+        tasksContainer.innerHTML = '<p class="empty-state">No tasks stored yet. Add one above or tell the AI Assistant!</p>';
         return;
       }
 
-      tasksContainer.innerHTML = tasks.map(t => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px;">
+      tasksContainer.innerHTML = tasks.map((t) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:10px;">
           <div>
-            <div style="font-weight: 600; font-size: 0.95rem; color: ${t.status === 'completed' ? 'var(--text-muted)' : '#fff'}; text-decoration: ${t.status === 'completed' ? 'line-through' : 'none'};">
+            <div style="font-weight:600;font-size:0.92rem;color:${t.status === 'completed' ? 'var(--text-muted)' : '#fff'};text-decoration:${t.status === 'completed' ? 'line-through' : 'none'};">
               ${t.title}
             </div>
-            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
-              Due: <strong>${t.due_date || 'No date'}</strong> • Priority: <span style="color: ${t.priority === 'high' ? '#f87171' : t.priority === 'medium' ? '#fbbf24' : '#34d399'}; text-transform: uppercase;">${t.priority}</span> • Status: <em>${t.status}</em>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">
+              Due: <strong>${t.due_date || 'No date'}</strong> • Priority: <span style="color:${t.priority === 'high' ? '#f87171' : t.priority === 'medium' ? '#fbbf24' : '#34d399'};text-transform:uppercase;">${t.priority}</span>
             </div>
           </div>
-          <div style="display: flex; gap: 8px;">
-            ${t.status !== 'completed' ? `<button onclick="updateTaskStatus('${t.id}', 'completed')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(16,185,129,0.2); color: #34d399; cursor: pointer;">✓ Done</button>` : `<button onclick="updateTaskStatus('${t.id}', 'pending')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(156,163,175,0.2); color: #9ca3af; cursor: pointer;">↺ Reopen</button>`}
-            <button onclick="deleteTaskItem('${t.id}')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(239,68,68,0.2); color: #f87171; cursor: pointer;">✕</button>
+          <div style="display:flex;gap:6px;">
+            ${t.status !== 'completed' ? `<button onclick="updateTaskStatus('${t.id}', 'completed')" class="secondary-btn btn-sm" style="color:#34d399;">✓ Done</button>` : `<button onclick="updateTaskStatus('${t.id}', 'pending')" class="secondary-btn btn-sm">↺ Reopen</button>`}
+            <button onclick="deleteTaskItem('${t.id}')" class="secondary-btn btn-sm" style="color:#f87171;">✕</button>
           </div>
         </div>
       `).join('');
     } catch (err) {
-      tasksContainer.innerHTML = `<p style="color: #ef4444;">Failed to load tasks: ${err.message}</p>`;
+      tasksContainer.innerHTML = `<p style="color:#ef4444;">Failed to load tasks: ${err.message}</p>`;
     }
   }
 
@@ -405,10 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      showToast(`Task status updated: ${newStatus}`, 'success');
+      showToast(`Task marked as ${newStatus}`, 'success');
       loadTasks();
     } catch (e) {
       showToast('Error updating task: ' + e.message, 'error');
@@ -419,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Delete this task?')) return;
     try {
       await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-      showToast('Task deleted from Firestore', 'info');
+      showToast('Task removed', 'info');
       loadTasks();
     } catch (e) {
       showToast('Error deleting task: ' + e.message, 'error');
@@ -437,11 +545,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         await fetch('/api/tasks', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, due_date: dueDate || null, priority }),
         });
         document.getElementById('newTaskTitle').value = '';
-        showToast('Task created successfully!', 'success');
+        showToast('Task added to Firestore', 'success');
         loadTasks();
       } catch (err) {
         showToast('Failed to save task: ' + err.message, 'error');
@@ -449,7 +557,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 8. Notes Management Functions
+  // ══════════════════════════════════════════════════════════════════════════
+  // 10. NOTES MANAGEMENT (Firestore)
+  // ══════════════════════════════════════════════════════════════════════════
   const notesContainer = document.getElementById('notesContainer');
   const createNoteForm = document.getElementById('createNoteForm');
   const searchNotesInput = document.getElementById('searchNotesInput');
@@ -463,30 +573,30 @@ document.addEventListener('DOMContentLoaded', () => {
       const notes = data.notes || [];
 
       if (notes.length === 0) {
-        notesContainer.innerHTML = '<p style="color: var(--text-muted); grid-column: 1 / -1; padding: 12px 0;">No notes found in Firestore.</p>';
+        notesContainer.innerHTML = '<p class="empty-state" style="grid-column: 1 / -1;">No notes found.</p>';
         return;
       }
 
-      notesContainer.innerHTML = notes.map(n => `
-        <div style="background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+      notesContainer.innerHTML = notes.map((n) => `
+        <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:10px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;">
           <div>
-            <div style="font-weight: 600; font-size: 0.95rem; color: #fff; margin-bottom: 6px;">
+            <div style="font-weight:600;font-size:0.92rem;color:#fff;margin-bottom:4px;">
               ${n.title || 'Untitled Note'}
             </div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap;">
+            <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.5;white-space:pre-wrap;">
               ${n.content}
             </div>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-light);">
-            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-              ${(n.tags || []).map(tag => `<span style="font-size: 0.7rem; background: rgba(99,102,241,0.2); color: #a5b4fc; padding: 2px 6px; border-radius: 4px;">#${tag}</span>`).join('')}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--border-subtle);">
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              ${(n.tags || []).map((tag) => `<span style="font-size:0.68rem;background:rgba(59,130,246,0.15);color:#93c5fd;padding:1px 6px;border-radius:4px;">#${tag}</span>`).join('')}
             </div>
-            <button onclick="deleteNoteItem('${n.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem;">🗑</button>
+            <button onclick="deleteNoteItem('${n.id}')" style="background:transparent;border:none;color:#f87171;cursor:pointer;font-size:0.8rem;" title="Delete Note">✕</button>
           </div>
         </div>
       `).join('');
     } catch (err) {
-      notesContainer.innerHTML = `<p style="color: #ef4444;">Failed to load notes: ${err.message}</p>`;
+      notesContainer.innerHTML = `<p style="color:#ef4444;">Failed to load notes: ${err.message}</p>`;
     }
   }
 
@@ -494,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirm('Delete this note?')) return;
     try {
       await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
-      showToast('Note deleted from Firestore', 'info');
+      showToast('Note deleted', 'info');
       loadNotes();
     } catch (e) {
       showToast('Error deleting note: ' + e.message, 'error');
@@ -509,18 +619,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const tagsStr = document.getElementById('newNoteTags').value.trim();
       if (!content) return;
 
-      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim().toLowerCase()) : [];
+      const tags = tagsStr ? tagsStr.split(',').map((t) => t.trim().toLowerCase()) : [];
 
       try {
         await fetch('/api/notes', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content, title: title || null, tags }),
         });
         document.getElementById('newNoteTitle').value = '';
         document.getElementById('newNoteContent').value = '';
         document.getElementById('newNoteTags').value = '';
-        showToast('Note saved to Firestore!', 'success');
+        showToast('Note captured in Firestore', 'success');
         loadNotes();
       } catch (err) {
         showToast('Failed to save note: ' + err.message, 'error');
@@ -534,11 +644,13 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         loadNotes(e.target.value.trim());
-      }, 300);
+      }, 250);
     });
   }
 
-  // 9. Calendar MCP Management Functions
+  // ══════════════════════════════════════════════════════════════════════════
+  // 11. CALENDAR MCP MANAGEMENT
+  // ══════════════════════════════════════════════════════════════════════════
   const calendarEventsContainer = document.getElementById('calendarEventsContainer');
   const createEventForm = document.getElementById('createEventForm');
   const checkConflictForm = document.getElementById('checkConflictForm');
@@ -555,37 +667,36 @@ document.addEventListener('DOMContentLoaded', () => {
       const events = data.events || [];
 
       if (events.length === 0) {
-        calendarEventsContainer.innerHTML = '<p style="color: var(--text-muted); padding: 12px 0;">No events scheduled for this date.</p>';
+        calendarEventsContainer.innerHTML = '<p class="empty-state">No events scheduled.</p>';
         return;
       }
 
-      calendarEventsContainer.innerHTML = events.map(e => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-light); border-radius: 8px;">
+      calendarEventsContainer.innerHTML = events.map((e) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:10px;">
           <div>
-            <div style="font-weight: 600; font-size: 0.95rem; color: #fff;">
+            <div style="font-weight:600;font-size:0.92rem;color:#fff;">
               ${e.summary}
             </div>
-            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">
               ⏱️ ${e.start_time.replace('T', ' ')} → ${e.end_time.replace('T', ' ')} ${e.location ? `• 📍 ${e.location}` : ''}
             </div>
-            ${e.description ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">${e.description}</div>` : ''}
           </div>
-          <button onclick="deleteCalendarEventItem('${e.id}')" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: rgba(239,68,68,0.2); color: #f87171; cursor: pointer;">✕ Delete</button>
+          <button onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:#f87171;">✕ Cancel</button>
         </div>
       `).join('');
     } catch (err) {
-      calendarEventsContainer.innerHTML = `<p style="color: #ef4444;">Failed to load events: ${err.message}</p>`;
+      calendarEventsContainer.innerHTML = `<p style="color:#ef4444;">Failed to load events: ${err.message}</p>`;
     }
   }
 
   window.deleteCalendarEventItem = async (eventId) => {
-    if (!confirm('Cancel/Delete this calendar event?')) return;
+    if (!confirm('Cancel this event?')) return;
     try {
       await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE' });
-      showToast('Event removed from Calendar', 'info');
+      showToast('Event cancelled', 'info');
       loadCalendarEvents();
     } catch (e) {
-      showToast('Error deleting calendar event: ' + e.message, 'error');
+      showToast('Error deleting event: ' + e.message, 'error');
     }
   };
 
@@ -601,12 +712,12 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         await fetch('/api/calendar/events', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ summary, start_time: startTime, end_time: endTime, location }),
         });
         document.getElementById('newEventSummary').value = '';
         document.getElementById('newEventLocation').value = '';
-        showToast('Event scheduled via Calendar MCP!', 'success');
+        showToast('Event booked on Google Calendar!', 'success');
         loadCalendarEvents();
       } catch (err) {
         showToast('Failed to schedule event: ' + err.message, 'error');
@@ -624,21 +735,20 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const resp = await fetch('/api/calendar/check-availability', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ start_time: start, end_time: end }),
         });
         const data = await resp.json();
         if (data.available) {
-          conflictStatusBadge.textContent = '✅ Free / No Conflict';
-          conflictStatusBadge.style.background = 'rgba(16,185,129,0.2)';
-          conflictStatusBadge.style.color = '#34d399';
-          conflictResultText.innerHTML = `Great! Timeslot from <strong>${start}</strong> to <strong>${end}</strong> is clear.`;
+          conflictStatusBadge.textContent = 'Free / Available';
+          conflictStatusBadge.className = 'status-chip success';
+          conflictResultText.innerHTML = `Timeslot is clear from <strong>${start}</strong> to <strong>${end}</strong>.`;
         } else {
-          conflictStatusBadge.textContent = `⚠️ ${data.conflicts_count} Conflict(s) Detected`;
-          conflictStatusBadge.style.background = 'rgba(239,68,68,0.2)';
+          conflictStatusBadge.textContent = `${data.conflicts_count} Conflict(s)`;
+          conflictStatusBadge.className = 'status-chip';
           conflictStatusBadge.style.color = '#f87171';
-          const confTitles = data.conflicting_events.map(c => `• "${c.summary}" (${c.start_time.slice(11,16)} - ${c.end_time.slice(11,16)})`).join('<br>');
-          conflictResultText.innerHTML = `Conflict detected with:<br>${confTitles}`;
+          const confTitles = data.conflicting_events.map((c) => `• "${c.summary}"`).join('<br>');
+          conflictResultText.innerHTML = `Overlaps with:<br>${confTitles}`;
         }
       } catch (err) {
         conflictResultText.textContent = 'Error checking availability: ' + err.message;
@@ -652,7 +762,117 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 7. Weather Integration (Milestone 6)
+  // ══════════════════════════════════════════════════════════════════════════
+  // 12. GMAIL DRAFTS & HUMAN-IN-THE-LOOP DISPATCH
+  // ══════════════════════════════════════════════════════════════════════════
+  const draftsContainer = document.getElementById('draftsContainer');
+  const createDraftForm = document.getElementById('createDraftForm');
+  const refreshDraftsBtn = document.getElementById('refreshDraftsBtn');
+
+  async function loadDrafts() {
+    if (!draftsContainer) return;
+    try {
+      const resp = await fetch('/api/gmail/drafts');
+      if (!resp.ok) throw new Error('Could not fetch drafts');
+      const data = await resp.json();
+      const drafts = data.drafts || [];
+
+      if (drafts.length === 0) {
+        draftsContainer.innerHTML = '<p class="empty-state">No drafts in queue. Compose one above or ask the AI Assistant!</p>';
+        return;
+      }
+
+      draftsContainer.innerHTML = drafts.map((d) => `
+        <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-weight:600;font-size:0.92rem;color:#fff;">
+                ${d.subject || '(No Subject)'}
+              </div>
+              <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">
+                To: <strong style="color:#93c5fd;">${d.to}</strong> • ID: <code>${d.draft_id}</code>
+              </div>
+            </div>
+            <span class="status-chip ${d.status === 'sent' ? 'success' : 'highlight'}">
+              ${d.status === 'sent' ? 'SENT' : 'DRAFT (NEEDS APPROVAL)'}
+            </span>
+          </div>
+          <div style="font-size:0.82rem;color:var(--text-primary);background:var(--bg-input);padding:10px 12px;border-radius:8px;line-height:1.45;white-space:pre-wrap;">
+            ${d.body}
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+            ${d.status !== 'sent' ? `
+              <button onclick="approveAndSendDraft('${d.draft_id}')" class="primary-btn btn-sm" style="display:flex;align-items:center;gap:6px;">
+                <span>🚀 Approve & Send</span>
+              </button>
+            ` : '<span style="font-size:0.75rem;color:var(--text-muted);">Dispatched</span>'}
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      draftsContainer.innerHTML = `<p style="color:#ef4444;">Failed to load drafts: ${err.message}</p>`;
+    }
+  }
+
+  window.approveAndSendDraft = async (draftId) => {
+    if (!confirm(`Are you sure you want to approve and send draft ${draftId}?`)) return;
+    try {
+      const resp = await fetch('/api/gmail/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft_id: draftId }),
+      });
+      const res = await resp.json();
+      if (res.success) {
+        showToast('Email draft dispatched successfully!', 'success');
+      } else {
+        showToast('Draft dispatch result: ' + JSON.stringify(res.result || res), 'info');
+      }
+      loadDrafts();
+    } catch (err) {
+      showToast('Error dispatching draft: ' + err.message, 'error');
+    }
+  };
+
+  if (createDraftForm) {
+    createDraftForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const to = document.getElementById('newDraftTo').value.trim();
+      const subject = document.getElementById('newDraftSubject').value.trim();
+      const body = document.getElementById('newDraftBody').value.trim();
+      if (!to || !subject || !body) return;
+
+      try {
+        const resp = await fetch('/api/gmail/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, subject, body }),
+        });
+        if (resp.ok) {
+          document.getElementById('newDraftTo').value = '';
+          document.getElementById('newDraftSubject').value = '';
+          document.getElementById('newDraftBody').value = '';
+          showToast('Draft created! Ready for review & approval.', 'success');
+          loadDrafts();
+        } else {
+          showToast('Failed to create draft', 'error');
+        }
+      } catch (err) {
+        showToast('Error creating draft: ' + err.message, 'error');
+      }
+    });
+  }
+
+  if (refreshDraftsBtn) {
+    refreshDraftsBtn.addEventListener('click', () => {
+      loadDrafts();
+      showToast('Drafts refreshed', 'info');
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 13. WEATHER INTEGRATION
+  // ══════════════════════════════════════════════════════════════════════════
   const weatherForm = document.getElementById('weatherForm');
   const weatherCityInput = document.getElementById('weatherCityInput');
   const weatherCityName = document.getElementById('weatherCityName');
@@ -683,12 +903,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (weatherOutdoorBadge) {
         if (data.suitable_for_outdoor) {
-          weatherOutdoorBadge.textContent = '✅ Favorable Outdoors';
-          weatherOutdoorBadge.style.background = 'rgba(16, 185, 129, 0.2)';
-          weatherOutdoorBadge.style.color = '#34d399';
+          weatherOutdoorBadge.textContent = 'Favorable Outdoors';
+          weatherOutdoorBadge.className = 'status-chip success';
         } else {
-          weatherOutdoorBadge.textContent = '⚠️ Indoor Focus Recommended';
-          weatherOutdoorBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+          weatherOutdoorBadge.textContent = 'Indoor Focus Recommended';
+          weatherOutdoorBadge.className = 'status-chip';
           weatherOutdoorBadge.style.color = '#fbbf24';
         }
       }
@@ -716,8 +935,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function triggerPlanPrompt(promptText) {
     const chatTabBtn = document.querySelector('.nav-item[data-tab="chat"]');
     if (chatTabBtn) chatTabBtn.click();
-    userInput.value = promptText;
-    chatForm.dispatchEvent(new Event('submit'));
+    if (userInput) {
+      userInput.value = promptText;
+      chatForm.dispatchEvent(new Event('submit'));
+    }
   }
 
   if (planTodayBtn) {
@@ -732,7 +953,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 8. Timetable Synthesis (Milestone 7)
+  // ══════════════════════════════════════════════════════════════════════════
+  // 14. SMART DAY PLANNER TIMETABLE
+  // ══════════════════════════════════════════════════════════════════════════
   const timetableContainer = document.getElementById('timetableContainer');
   const timetableStatusBadge = document.getElementById('timetableStatusBadge');
 
@@ -743,90 +966,43 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetDate) payload.target_date = targetDate;
       const resp = await fetch('/api/planner/generate', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
       if (!resp.ok) throw new Error('Planner fetch failed');
       const data = await resp.json();
       latestPlanMarkdown = data.formatted_markdown || '';
 
       if (timetableStatusBadge) {
-        timetableStatusBadge.textContent = `${data.scheduled_events_count} Meeting(s) • ${data.pending_tasks_count} Pending Task(s)`;
+        timetableStatusBadge.textContent = `${data.scheduled_events_count} Meeting(s) • ${data.pending_tasks_count} Task(s)`;
       }
 
-      const typeColors = {
-        focus: { bg: 'rgba(16, 185, 129, 0.1)', border: '#10b981', badge: 'Focus Block', badgeBg: 'rgba(16, 185, 129, 0.2)', badgeColor: '#34d399' },
-        meeting: { bg: 'rgba(99, 102, 241, 0.1)', border: '#6366f1', badge: 'Meeting (MCP)', badgeBg: 'rgba(99, 102, 241, 0.2)', badgeColor: '#818cf8' },
-        break: { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b', badge: 'Break / Lunch', badgeBg: 'rgba(245, 158, 11, 0.2)', badgeColor: '#fbbf24' },
-        wrapup: { bg: 'rgba(148, 163, 184, 0.1)', border: '#94a3b8', badge: 'Wrap-up', badgeBg: 'rgba(148, 163, 184, 0.2)', badgeColor: '#cbd5e1' }
-      };
-
       if (!data.timetable || data.timetable.length === 0) {
-        timetableContainer.innerHTML = '<p style="color: var(--text-muted);">No blocks generated for this day.</p>';
+        timetableContainer.innerHTML = '<p class="empty-state">No blocks generated for this day.</p>';
         return;
       }
 
-      timetableContainer.innerHTML = data.timetable.map(block => {
-        const style = typeColors[block.activity_type] || typeColors.focus;
-        return `
-          <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; background: ${style.bg}; border-left: 3px solid ${style.border};">
-            <div style="font-weight: 700; font-family: monospace; font-size: 0.95rem; min-width: 105px; color: #fff;">
-              ${block.time_range}
-            </div>
-            <div style="flex: 1;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <strong style="color: #fff; font-size: 0.95rem;">${block.title}</strong>
-                <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: ${style.badgeBg}; color: ${style.badgeColor}; font-weight: 600;">${style.badge}</span>
-              </div>
-              <p style="margin: 0; font-size: 0.82rem; color: var(--text-secondary);">${block.description}</p>
-            </div>
+      timetableContainer.innerHTML = data.timetable.map((block) => `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--bg-surface-elevated);border-left:3px solid #3b82f6;">
+          <div style="font-weight:700;font-family:monospace;font-size:0.88rem;min-width:96px;color:#93c5fd;">
+            ${block.time_range}
           </div>
-        `;
-      }).join('');
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <strong style="color:#fff;font-size:0.92rem;">${block.title}</strong>
+              <span class="status-chip highlight">${block.activity_type.toUpperCase()}</span>
+            </div>
+            <p style="margin:0;font-size:0.8rem;color:var(--text-secondary);">${block.description}</p>
+          </div>
+        </div>
+      `).join('');
     } catch (err) {
-      timetableContainer.innerHTML = `<p style="color: #ef4444;">Error loading timetable: ${err.message}</p>`;
+      timetableContainer.innerHTML = `<p style="color:#ef4444;">Error loading timetable: ${err.message}</p>`;
     }
   }
 
-  // Clear Chat Button Handler
-  if (clearChatBtn) {
-    clearChatBtn.addEventListener('click', () => {
-      chatMessages.innerHTML = `
-        <div class="message assistant">
-          <div class="message-avatar">🧠</div>
-          <div class="message-body">
-            <div class="message-sender">Synaptix Coordinator Agent</div>
-            <div class="message-text">
-              <p>Chat cleared! Ready for new tasks, notes, or scheduling instructions.</p>
-            </div>
-            <div class="message-time">Just now</div>
-          </div>
-        </div>
-      `;
-      conversationHistory.length = 0;
-      currentSessionId = null;
-      showToast('Chat history cleared', 'info');
-    });
-  }
-
-  // Copy Daily Plan Button Handler
-  if (copyPlanBtn) {
-    copyPlanBtn.addEventListener('click', async () => {
-      if (!latestPlanMarkdown) {
-        showToast('No daily plan generated yet to copy', 'warning');
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(latestPlanMarkdown);
-        showToast('Daily plan copied to clipboard!', 'success');
-      } catch (e) {
-        showToast('Failed to copy plan: ' + e.message, 'error');
-      }
-    });
-  }
-
   // ══════════════════════════════════════════════════════════════════════════
-  // MULTI-USER GOOGLE AUTHENTICATION & PROFILE
+  // 15. MULTI-USER GOOGLE AUTHENTICATION & PROFILE
   // ══════════════════════════════════════════════════════════════════════════
   const loginModal = document.getElementById('loginModal');
   const userProfileCard = document.getElementById('userProfileCard');
@@ -859,7 +1035,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Auth status check error:', err);
     }
 
-    // Unauthenticated: show login modal
     if (loginModal) loginModal.style.display = 'flex';
     if (userProfileCard) userProfileCard.style.display = 'none';
     return false;
@@ -875,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
           loadTasks();
           loadNotes();
           loadCalendarEvents();
+          loadDrafts();
         }
       } catch (e) {
         showToast('Guest sign-in error: ' + e.message, 'error');
@@ -882,27 +1058,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Preload calendar events
+  // Initial Preloads
   loadCalendarEvents();
-
-  // Preload weather
   loadWeather();
-
-  // Preload timetable
   loadTimetable();
-
-  // Preload tasks and notes
   loadTasks();
   loadNotes();
-
-  // Check auth state immediately
+  loadDrafts();
   checkAuth();
+  updateChatDockState();
 
-  // Auto-resize textarea
-  userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      chatForm.dispatchEvent(new Event('submit'));
-    }
-  });
+  // Auto-resize / Enter to submit textarea
+  if (userInput) {
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.dispatchEvent(new Event('submit'));
+      }
+    });
+  }
 });

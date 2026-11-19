@@ -71,8 +71,15 @@ def run_comprehensive_verification():
     # 1. Start live server on port 8889
     server = LiveServer(port=8889)
     server.start()
-    time.sleep(1.2)
     base_url = "http://127.0.0.1:8889"
+    # Wait until live server is responding
+    for _ in range(25):
+        time.sleep(0.2)
+        try:
+            with urllib.request.urlopen(f"{base_url}/api/health", timeout=1):
+                break
+        except Exception:
+            pass
 
     results = {}
 

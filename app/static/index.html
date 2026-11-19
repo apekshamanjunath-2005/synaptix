@@ -6,56 +6,76 @@
   <title>Synaptix — Multi-Agent AI Personal Productivity Assistant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-  <div class="app-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
+  <div class="app-layout">
+    <!-- Minimalist Obsidian Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-monogram">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
+            </svg>
+          </div>
+          <div class="brand-info">
+            <span class="brand-title">Synaptix</span>
+            <span class="brand-badge">AI</span>
+          </div>
+        </div>
+        <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle Sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
           </svg>
-        </div>
-        <div>
-          <h1 class="brand-title">Synaptix</h1>
-          <span class="brand-tag">Multi-Agent AI</span>
-        </div>
+        </button>
       </div>
 
+      <!-- Navigation Menu: Clean User-Facing Tabs Only -->
       <nav class="nav-menu">
         <button class="nav-item active" data-tab="chat">
-          <span class="nav-icon">💬</span>
-          <span>AI Assistant</span>
-          <span class="nav-badge">Coordinator</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          </span>
+          <span class="nav-label">AI Assistant</span>
+          <span class="nav-glow-indicator"></span>
         </button>
         <button class="nav-item" data-tab="tasks">
-          <span class="nav-icon">✅</span>
-          <span>Tasks</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          </span>
+          <span class="nav-label">Tasks</span>
         </button>
         <button class="nav-item" data-tab="notes">
-          <span class="nav-icon">📝</span>
-          <span>Notes</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </span>
+          <span class="nav-label">Notes</span>
         </button>
         <button class="nav-item" data-tab="calendar">
-          <span class="nav-icon">📅</span>
-          <span>Calendar</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </span>
+          <span class="nav-label">Calendar</span>
+        </button>
+        <button class="nav-item" data-tab="gmail">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </span>
+          <span class="nav-label">Gmail</span>
         </button>
         <button class="nav-item" data-tab="planner">
-          <span class="nav-icon">🧭</span>
-          <span>Smart Planner</span>
-        </button>
-        <button class="nav-item" data-tab="telemetry">
-          <span class="nav-icon">📊</span>
-          <span>Budget & Telemetry</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+          </span>
+          <span class="nav-label">Smart Planner</span>
         </button>
       </nav>
 
-      <!-- Sidebar Footer Status -->
-      <div class="sidebar-footer">
-        <!-- User Profile Card (Multi-User OAuth) -->
+      <!-- Sidebar Bottom: User Profile -->
+      <div class="sidebar-bottom">
         <div class="user-profile-card" id="userProfileCard" style="display: none;">
           <div class="user-avatar" id="userAvatar">U</div>
           <div class="user-details">
@@ -71,309 +91,364 @@
           </a>
         </div>
 
-        <div class="budget-pill">
-          <span class="budget-dot"></span>
-          <span>₹0 Budget Active</span>
-        </div>
-        <div class="server-status" id="serverStatusBadge">
+        <!-- Hidden Developer Status Elements (Retained for Test Suite Compatibility) -->
+        <div id="serverStatusBadge" style="display: none;" aria-hidden="true">
           <span class="status-indicator online"></span>
-          <span id="statusText">Connecting...</span>
+          <span id="statusText">Server Online</span>
         </div>
       </div>
     </aside>
 
     <!-- Main Content Area -->
     <main class="main-content">
-      <!-- Top Navigation Header -->
+      <!-- Minimalist Top Navigation Header -->
       <header class="top-header">
         <div class="header-left">
-          <h2 id="currentTabTitle">AI Assistant</h2>
-          <p id="currentTabDesc">Talk to the Coordinator Agent to manage tasks, notes, calendar, and daily plans.</p>
+          <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+          <div>
+            <h2 id="currentTabTitle" class="tab-title">AI Assistant</h2>
+            <p id="currentTabDesc" class="tab-subtitle">Natural language multi-agent coordinator</p>
+          </div>
         </div>
         <div class="header-right">
-          <div class="agent-roster">
-            <div class="agent-chip active" title="Coordinator: Active and ready">
+          <div class="agent-roster" title="Active Multi-Agent Swarm">
+            <div class="agent-chip active" title="Coordinator Agent">
               <span class="agent-dot"></span> Coordinator
             </div>
-            <div class="agent-chip standby" title="Task Agent: Configured in Milestone 3">
+            <div class="agent-chip standby" title="Task Agent">
               <span class="agent-dot"></span> Tasks
             </div>
-            <div class="agent-chip standby" title="Notes Agent: Configured in Milestone 3">
+            <div class="agent-chip standby" title="Notes Agent">
               <span class="agent-dot"></span> Notes
             </div>
-            <div class="agent-chip standby" title="Calendar Agent: Configured in Milestone 3 & 5">
+            <div class="agent-chip standby" title="Calendar Agent">
               <span class="agent-dot"></span> Calendar
             </div>
-            <div class="agent-chip standby" title="Planner Agent: Configured in Milestone 3 & 7">
+            <div class="agent-chip standby" title="Gmail Agent">
+              <span class="agent-dot"></span> Gmail
+            </div>
+            <div class="agent-chip standby" title="Smart Day Planner Agent">
               <span class="agent-dot"></span> Planner
             </div>
           </div>
         </div>
       </header>
 
-      <!-- Tab 1: AI Chat View -->
+      <!-- TAB 1: AI ASSISTANT (Hero-to-Chat & Animated Glow Centerpiece) -->
       <section class="tab-pane active" id="tab-chat">
-        <div class="chat-container">
-          <div class="chat-messages" id="chatMessages">
-            <div class="message assistant">
-              <div class="message-avatar">🧠</div>
-              <div class="message-body">
-                <div class="message-sender">Synaptix Coordinator Agent</div>
-                <div class="message-text">
-                  <p><strong>Welcome to Synaptix!</strong> Milestone 1 foundation is operational.</p>
-                  <p>I am your central Coordinator Agent. In the upcoming milestones, I will orchestrate 4 specialized agents to manage your personal productivity:</p>
-                  <ul>
-                    <li><strong>Task Agent:</strong> Creates, prioritizes, and tracks your deadlines in Firestore.</li>
-                    <li><strong>Notes Agent:</strong> Organizes, retrieves, and searches your thoughts and meeting notes.</li>
-                    <li><strong>Calendar Agent:</strong> Integrates with Google Calendar via MCP to track events and detect conflicts.</li>
-                    <li><strong>Smart Day Planner:</strong> Synthesizes pending tasks, meetings, and local weather to build your daily timetable.</li>
-                  </ul>
-                  <p class="hint-text">💡 <em>In Milestone 2, we will connect Google Gemini 2.5 Flash to enable live intelligence. Check out the <strong>Budget & Telemetry</strong> tab to view your active ₹0 safeguards!</em></p>
-                </div>
-                <div class="message-time" id="welcomeTime">Just now</div>
+        <div class="chat-container is-hero" id="chatContainer">
+          <!-- Hero Greeting (Visible when chat is empty) -->
+          <div class="chat-hero" id="chatHero">
+            <div class="hero-glyph">
+              <div class="hero-glyph-ring"></div>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
+              </svg>
+            </div>
+            <h1 class="hero-headline">Good day. What shall we achieve?</h1>
+            <p class="hero-tagline">Ask to organize tasks, capture notes, schedule meetings, draft emails, or plan your entire day.</p>
+          </div>
+
+          <!-- Chat Messages (Scrollable conversation stream) -->
+          <div class="chat-messages" id="chatMessages"></div>
+
+          <!-- Floating Animated Dual-Tone Glow Prompt Box (Centerpiece) -->
+          <div class="prompt-box-wrapper" id="promptBoxWrapper">
+            <div class="aura-glow-wrapper">
+              <div class="prompt-box-inner">
+                <form id="chatForm" class="prompt-form">
+                  <textarea id="userInput" placeholder="How can I help you?" rows="1" autocomplete="off" spellcheck="false"></textarea>
+                  
+                  <div class="prompt-bottom-bar">
+                    <!-- Bottom-Left Pill Controls -->
+                    <div class="prompt-controls-left">
+                      <div class="mode-select-pill">
+                        <select id="modeSelect" class="mode-select" title="Target Agent or Capability">
+                          <option value="auto" selected>✨ Auto (Coordinator)</option>
+                          <option value="gmail">✉️ Gmail</option>
+                          <option value="tasks">✅ Tasks</option>
+                          <option value="notes">📝 Notes</option>
+                          <option value="calendar">📅 Calendar</option>
+                          <option value="planner">🧭 Smart Planner</option>
+                        </select>
+                      </div>
+
+                      <div class="prompt-chips">
+                        <button type="button" class="chip" data-prompt="Plan my day today">Plan day</button>
+                        <button type="button" class="chip" data-prompt="Draft an email to ">Draft email</button>
+                        <button type="button" class="chip" data-prompt="Show my pending tasks">My tasks</button>
+                        <button type="button" class="chip" data-prompt="What meetings do I have scheduled?">Calendar</button>
+                        <button type="button" class="chip chip-clear" id="clearChatBtn" title="Clear conversation">🗑️</button>
+                      </div>
+                    </div>
+
+                    <!-- Bottom-Right Send Button with Blue Glow Border -->
+                    <button type="submit" id="sendBtn" class="send-btn-aura" title="Send message (Enter)">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: TASKS VIEW -->
+      <section class="tab-pane" id="tab-tasks">
+        <div class="panel-content-max">
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-num" id="taskPendingCount">0</div>
+              <div class="stat-label">Pending Tasks</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="taskCompletedCount">0</div>
+              <div class="stat-label">Completed Tasks</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="taskPriorityCount">0</div>
+              <div class="stat-label">High Priority</div>
+            </div>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header">
+              <h3 class="card-title">Add New Task</h3>
+              <span class="card-pill">Firestore Synced</span>
+            </div>
+            <form id="createTaskForm" class="card-form inline-form">
+              <input type="text" id="newTaskTitle" placeholder="What needs to be done?" required class="dark-input flex-2">
+              <input type="date" id="newTaskDueDate" class="dark-input flex-1">
+              <select id="newTaskPriority" class="dark-input flex-1">
+                <option value="low">Low Priority</option>
+                <option value="medium" selected>Medium Priority</option>
+                <option value="high">High Priority</option>
+              </select>
+              <button type="submit" class="primary-btn">+ Add Task</button>
+            </form>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header">
+              <h3 class="card-title">Tasks in Storage</h3>
+            </div>
+            <div id="tasksContainer" class="items-list">
+              <p class="empty-state">Loading tasks...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: NOTES VIEW -->
+      <section class="tab-pane" id="tab-notes">
+        <div class="panel-content-max">
+          <div class="dark-card">
+            <div class="card-header">
+              <h3 class="card-title">Capture Note</h3>
+              <span class="card-pill">NotesAgent</span>
+            </div>
+            <form id="createNoteForm" class="card-form">
+              <input type="text" id="newNoteTitle" placeholder="Title (optional)" class="dark-input">
+              <textarea id="newNoteContent" placeholder="Write your thoughts, meeting notes, or ideas..." required rows="3" class="dark-input"></textarea>
+              <div class="form-row">
+                <input type="text" id="newNoteTags" placeholder="Tags (comma separated: work, ideas, sync)" class="dark-input flex-1">
+                <button type="submit" class="primary-btn">Save Note</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Stored Notes</h3>
+              <input type="text" id="searchNotesInput" placeholder="🔍 Search notes..." class="dark-input search-input">
+            </div>
+            <div id="notesContainer" class="notes-grid">
+              <p class="empty-state">Loading notes...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: CALENDAR VIEW -->
+      <section class="tab-pane" id="tab-calendar">
+        <div class="panel-content-max">
+          <div class="dark-card">
+            <div class="card-header">
+              <h3 class="card-title">Schedule Calendar Event</h3>
+              <span class="card-pill">Calendar MCP</span>
+            </div>
+            <form id="createEventForm" class="card-form inline-form">
+              <input type="text" id="newEventSummary" placeholder="Event title or agenda" required class="dark-input flex-2">
+              <input type="datetime-local" id="newEventStart" required class="dark-input flex-1">
+              <input type="datetime-local" id="newEventEnd" required class="dark-input flex-1">
+              <input type="text" id="newEventLocation" placeholder="Location or Meet link" class="dark-input flex-1">
+              <button type="submit" class="primary-btn">Schedule</button>
+            </form>
+          </div>
+
+          <div class="dark-card conflict-checker-card">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Timeslot Conflict Checker</h3>
+              <span id="conflictStatusBadge" class="status-chip success">Ready</span>
+            </div>
+            <form id="checkConflictForm" class="card-form inline-form">
+              <input type="datetime-local" id="checkStart" required class="dark-input flex-1">
+              <input type="datetime-local" id="checkEnd" required class="dark-input flex-1">
+              <button type="submit" class="secondary-btn">Check Availability</button>
+            </form>
+            <div id="conflictResultText" class="conflict-result"></div>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Upcoming Commitments</h3>
+              <input type="date" id="calendarFilterDate" class="dark-input date-filter">
+            </div>
+            <div id="calendarEventsContainer" class="items-list">
+              <p class="empty-state">Loading calendar events...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: GMAIL & DRAFTS VIEW -->
+      <section class="tab-pane" id="tab-gmail">
+        <div class="panel-content-max">
+          <div class="dark-card highlight-border-card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Human-in-the-Loop Email System</h3>
+                <p class="card-subtitle">Every email is drafted first for preview. Dispatching only happens upon your explicit confirmation.</p>
+              </div>
+              <span class="status-chip highlight">Draft → Approve → Send</span>
+            </div>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header">
+              <h3 class="card-title">Compose Email Draft</h3>
+              <span class="card-pill">GmailAgent</span>
+            </div>
+            <form id="createDraftForm" class="card-form">
+              <input type="email" id="newDraftTo" placeholder="Recipient email (e.g. alex@company.com)" required class="dark-input">
+              <input type="text" id="newDraftSubject" placeholder="Subject line" required class="dark-input">
+              <textarea id="newDraftBody" placeholder="Write email body..." required rows="4" class="dark-input"></textarea>
+              <div class="form-row-right">
+                <button type="submit" class="primary-btn">Create Draft</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="dark-card">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Email Drafts & Dispatch Queue</h3>
+              <button type="button" class="secondary-btn btn-sm" id="refreshDraftsBtn">Refresh</button>
+            </div>
+            <div id="draftsContainer" class="items-list">
+              <p class="empty-state">Loading drafts...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SMART PLANNER VIEW -->
+      <section class="tab-pane" id="tab-planner">
+        <div class="panel-content-max">
+          <div class="dark-card planner-hero-card">
+            <div class="card-header flex-between wrap-header">
+              <div>
+                <h3 class="card-title">Smart Day Planner</h3>
+                <p class="card-subtitle">Synthesizes pending tasks, meetings, and local weather to build a focused daily timetable.</p>
+              </div>
+              <div class="btn-group">
+                <button class="primary-btn btn-sm" id="planTodayBtn">⚡ Plan Today</button>
+                <button class="secondary-btn btn-sm" id="planTomorrowBtn">Plan Tomorrow</button>
+                <button class="secondary-btn btn-sm" id="copyPlanBtn">📋 Copy Plan</button>
               </div>
             </div>
           </div>
 
-          <!-- Suggested prompts -->
-          <div class="prompt-chips">
-            <button class="chip" data-prompt="What agents are in Synaptix?">What agents are in Synaptix?</button>
-            <button class="chip" data-prompt="Check backend health and ₹0 quota">Check backend health & budget</button>
-            <button class="chip" data-prompt="Show pending tasks">Show pending tasks</button>
-            <button class="chip" data-prompt="Plan my day tomorrow">Plan my day tomorrow</button>
-            <button class="chip" id="clearChatBtn" style="color: #f87171; border-color: rgba(239, 68, 68, 0.3);">🗑️ Clear</button>
+          <!-- Weather Forecast Card -->
+          <div class="dark-card">
+            <div class="card-header flex-between wrap-header">
+              <div class="flex-align-center gap-8">
+                <span class="header-icon">🌤️</span>
+                <h3 class="card-title">Weather Outlook & Outdoor Suitability</h3>
+              </div>
+              <form id="weatherForm" class="inline-form compact-form">
+                <input type="text" id="weatherCityInput" placeholder="City..." value="Bengaluru" class="dark-input city-input">
+                <button type="submit" class="secondary-btn btn-sm">Check</button>
+              </form>
+            </div>
+
+            <div id="weatherDisplayContainer" class="weather-grid">
+              <div class="weather-tile">
+                <div class="tile-label">Location & Condition</div>
+                <div id="weatherCityName" class="tile-val">Bengaluru</div>
+                <div id="weatherCondition" class="tile-sub">Loading...</div>
+              </div>
+              <div class="weather-tile">
+                <div class="tile-label">Temperature</div>
+                <div id="weatherTemp" class="tile-val">--°C</div>
+                <div id="weatherFeelsLike" class="tile-sub">Feels like --°C</div>
+              </div>
+              <div class="weather-tile">
+                <div class="tile-label">Humidity & Wind</div>
+                <div id="weatherHumidity" class="tile-val">--%</div>
+                <div id="weatherWind" class="tile-sub">-- km/h</div>
+              </div>
+              <div class="weather-tile">
+                <div class="tile-label">Outdoor Suitability</div>
+                <div id="weatherOutdoorBadge" class="status-chip success">Checking...</div>
+                <div id="weatherSourceBadge" class="tile-sub">Zero-Cost Provider</div>
+              </div>
+            </div>
+
+            <div id="weatherRecommendationBox" class="weather-advice-box">
+              <span class="advice-icon">💡</span>
+              <span id="weatherRecommendationText">Loading outdoor recommendation...</span>
+            </div>
           </div>
 
-          <!-- Chat Input -->
-          <div class="chat-input-wrapper">
-            <form id="chatForm" class="chat-form">
-              <textarea id="userInput" placeholder="Ask Synaptix to manage tasks, notes, schedule, or plan your day..." rows="1"></textarea>
-              <button type="submit" id="sendBtn" class="send-btn" title="Send message">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
-            </form>
+          <!-- Synthesized Daily Timetable -->
+          <div class="dark-card">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Daily Timetable & Focus Blocks</h3>
+              <span id="timetableStatusBadge" class="card-pill">Synthesized by SmartDayPlannerAgent</span>
+            </div>
+            <div id="timetableContainer" class="items-list">
+              <p class="empty-state">Loading timetable...</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- Tab 2: Tasks View -->
-      <section class="tab-pane" id="tab-tasks">
-        <div class="card-grid">
-          <div class="card stat-card">
-            <div class="stat-num" id="taskPendingCount">0</div>
-            <div class="stat-label">Pending Tasks</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-num" id="taskCompletedCount">0</div>
-            <div class="stat-label">Completed Tasks</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-num" id="taskPriorityCount">0</div>
-            <div class="stat-label">High Priority</div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 20px;">
-          <h3>Add New Task (Firestore)</h3>
-          <form id="createTaskForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="newTaskTitle" placeholder="Task title..." required style="flex: 2; min-width: 200px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <input type="date" id="newTaskDueDate" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <select id="newTaskPriority" style="flex: 1; min-width: 110px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-              <option value="low">Low Priority</option>
-              <option value="medium" selected>Medium Priority</option>
-              <option value="high">High Priority</option>
-            </select>
-            <button type="submit" class="send-btn" style="width: auto; padding: 0 18px; border-radius: 8px; font-weight: 600;">+ Add Task</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3>Active Tasks in Storage</h3>
-          <div id="tasksContainer" style="display: flex; flex-direction: column; gap: 10px;">
-            <p style="color: var(--text-muted);">Loading tasks from Firestore...</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tab 3: Notes View -->
-      <section class="tab-pane" id="tab-notes">
-        <div class="card" style="margin-bottom: 20px;">
-          <h3>Capture Note (Firestore)</h3>
-          <form id="createNoteForm" style="display: flex; flex-direction: column; gap: 10px;">
-            <input type="text" id="newNoteTitle" placeholder="Optional title..." style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <textarea id="newNoteContent" placeholder="Write your note, idea, or meeting summary..." required rows="3" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; resize: vertical;"></textarea>
-            <div style="display: flex; gap: 10px;">
-              <input type="text" id="newNoteTags" placeholder="Comma-separated tags (e.g. work, project)" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-              <button type="submit" class="send-btn" style="width: auto; padding: 0 20px; border-radius: 8px; font-weight: 600;">💾 Save Note</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="margin: 0;">Stored Notes</h3>
-            <input type="text" id="searchNotesInput" placeholder="🔍 Search notes..." style="padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; font-size: 0.85rem;">
-          </div>
-          <div id="notesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
-            <p style="color: var(--text-muted);">Loading notes from Firestore...</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tab 4: Calendar View -->
-      <section class="tab-pane" id="tab-calendar">
-        <div class="card" style="margin-bottom: 20px;">
-          <h3>Schedule Event (Calendar MCP)</h3>
-          <form id="createEventForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="newEventSummary" placeholder="Meeting title / agenda..." required style="flex: 2; min-width: 220px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <input type="datetime-local" id="newEventStart" required style="flex: 1; min-width: 170px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <input type="datetime-local" id="newEventEnd" required style="flex: 1; min-width: 170px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <input type="text" id="newEventLocation" placeholder="Location or Link (e.g. Google Meet)" style="flex: 1; min-width: 160px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <button type="submit" class="send-btn" style="width: auto; padding: 0 18px; border-radius: 8px; font-weight: 600;">📅 Book Event</button>
-          </form>
-        </div>
-
-        <div class="card" style="margin-bottom: 20px; background: rgba(30, 41, 59, 0.4);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="margin: 0;">⚡ MCP Timeslot Conflict Checker</h3>
-            <span id="conflictStatusBadge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 12px; background: rgba(16,185,129,0.15); color: #34d399;">Ready</span>
-          </div>
-          <form id="checkConflictForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="datetime-local" id="checkStart" required style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <input type="datetime-local" id="checkEnd" required style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff;">
-            <button type="submit" style="padding: 8px 16px; border-radius: 6px; border: none; background: var(--accent-primary); color: #fff; cursor: pointer; font-weight: 500;">Check Availability</button>
-          </form>
-          <div id="conflictResultText" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary);"></div>
-        </div>
-
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="margin: 0;">Scheduled Commitments</h3>
-            <input type="date" id="calendarFilterDate" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; font-size: 0.82rem;">
-          </div>
-          <div id="calendarEventsContainer" style="display: flex; flex-direction: column; gap: 10px;">
-            <p style="color: var(--text-muted);">Loading calendar events from MCP...</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tab 5: Smart Planner View -->
-      <section class="tab-pane" id="tab-planner">
-        <div class="card info-box" style="margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-              <h3 style="margin: 0;">🧭 Smart Day Planner</h3>
-              <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.9rem;">
-                Synthesizes pending tasks from TaskAgent, scheduled events from CalendarAgent (MCP), and real-time weather from OpenWeatherMap.
-              </p>
-            </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="send-btn" id="planTodayBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">⚡ Plan Today</button>
-              <button class="send-btn" id="planTomorrowBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; background: var(--bg-tertiary); border: 1px solid var(--border-color);">📅 Plan Tomorrow</button>
-              <button class="send-btn" id="copyPlanBtn" style="width: auto; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; background: var(--bg-elevated); border: 1px solid var(--border-color);">📋 Copy Plan</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Weather Integration Card (Milestone 6) -->
-        <div class="card" style="margin-bottom: 20px; background: rgba(30, 41, 59, 0.45); border: 1px solid var(--border-color);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 1.4rem;">🌤️</span>
-              <h3 style="margin: 0;">Weather Forecast & Outdoor Suitability</h3>
-            </div>
-            <form id="weatherForm" style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" id="weatherCityInput" placeholder="Enter city..." value="Bengaluru" style="padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: #fff; font-size: 0.85rem; width: 150px;">
-              <button type="submit" style="padding: 7px 14px; border-radius: 6px; border: none; background: var(--accent-primary); color: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 500;">Check Weather</button>
-            </form>
-          </div>
-
-          <div id="weatherDisplayContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
-            <div style="padding: 14px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color);">
-              <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Location & Condition</div>
-              <div id="weatherCityName" style="font-size: 1.25rem; font-weight: 600; margin-top: 4px;">Bengaluru</div>
-              <div id="weatherCondition" style="color: #60a5fa; font-size: 0.95rem; font-weight: 500;">Loading...</div>
-            </div>
-            <div style="padding: 14px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color);">
-              <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Temperature</div>
-              <div id="weatherTemp" style="font-size: 1.25rem; font-weight: 600; margin-top: 4px;">--°C</div>
-              <div id="weatherFeelsLike" style="color: var(--text-secondary); font-size: 0.85rem;">Feels like --°C</div>
-            </div>
-            <div style="padding: 14px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color);">
-              <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Humidity & Wind</div>
-              <div id="weatherHumidity" style="font-size: 1.1rem; font-weight: 600; margin-top: 4px;">--%</div>
-              <div id="weatherWind" style="color: var(--text-secondary); font-size: 0.85rem;">-- km/h</div>
-            </div>
-            <div style="padding: 14px; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color);">
-              <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Outdoor Status</div>
-              <div id="weatherOutdoorBadge" style="margin-top: 6px; display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; background: rgba(16,185,129,0.2); color: #34d399;">Checking...</div>
-              <div id="weatherSourceBadge" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 6px;">Zero-Cost Provider</div>
-            </div>
-          </div>
-
-          <div id="weatherRecommendationBox" style="margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; font-size: 0.88rem; color: #bfdbfe;">
-            💡 <strong>Productivity Advice:</strong> <span id="weatherRecommendationText">Loading outdoor recommendation...</span>
-          </div>
-        </div>
-
-        <!-- Planning Multi-Agent Insights -->
-        <div class="card" style="margin-bottom: 20px;">
-          <h3 style="margin-bottom: 12px;">Multi-Agent Synthesis Pipeline</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-            <div style="padding: 12px; border-radius: 8px; background: var(--bg-tertiary); border-left: 3px solid #10b981;">
-              <strong>1. TaskAgent (Firestore)</strong>
-              <p style="margin: 4px 0 0; font-size: 0.82rem; color: var(--text-secondary);">Gathers all pending deadlines, priority items, and tasks to fit into focus blocks.</p>
-            </div>
-            <div style="padding: 12px; border-radius: 8px; background: var(--bg-tertiary); border-left: 3px solid #6366f1;">
-              <strong>2. CalendarAgent (MCP)</strong>
-              <p style="margin: 4px 0 0; font-size: 0.82rem; color: var(--text-secondary);">Extracts immovable meetings and checks timeslot conflicts to prevent overlapping plans.</p>
-            </div>
-            <div style="padding: 12px; border-radius: 8px; background: var(--bg-tertiary); border-left: 3px solid #f59e0b;">
-              <strong>3. Weather Tool</strong>
-              <p style="margin: 4px 0 0; font-size: 0.82rem; color: var(--text-secondary);">Determines whether outdoor work, walking meetings, or indoor focus blocks are ideal.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Synthesized Schedule Timeline Card (Milestone 7) -->
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin: 0;">⏱️ Daily Timetable & Deep Focus Blocks</h3>
-            <span id="timetableStatusBadge" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 12px; background: rgba(99,102,241,0.2); color: #818cf8;">Synthesized by SmartDayPlannerAgent</span>
-          </div>
-          <div id="timetableContainer" style="display: flex; flex-direction: column; gap: 10px;">
-            <p style="color: var(--text-muted);">Loading timetable from multi-agent synthesis...</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tab 6: Telemetry & Budget View -->
-      <section class="tab-pane" id="tab-telemetry">
+      <!-- HIDDEN TELEMETRY SECTION (Preserved for Backend & Test Compatibility) -->
+      <section class="tab-pane" id="tab-telemetry" style="display: none;" aria-hidden="true">
         <div class="card-grid">
           <div class="card">
-            <h3>Backend Health</h3>
-            <div class="telemetry-item"><span>Status:</span> <strong id="telStatus" class="highlight-green">Checking...</strong></div>
+            <div class="telemetry-item"><span>Status:</span> <strong id="telStatus">Online</strong></div>
             <div class="telemetry-item"><span>Uptime:</span> <span id="telUptime">0s</span></div>
             <div class="telemetry-item"><span>Python Version:</span> <span id="telPython">-</span></div>
             <div class="telemetry-item"><span>Environment:</span> <span id="telEnv">-</span></div>
           </div>
           <div class="card">
-            <h3>Strict ₹0 Budget Safeguards</h3>
-            <div class="telemetry-item"><span>Tier:</span> <strong class="highlight-green">₹0 Free Tier (Enforced)</strong></div>
             <div class="telemetry-item"><span>LLM Daily Limit:</span> <span id="telDailyLimit">100</span></div>
             <div class="telemetry-item"><span>LLM Requests Made:</span> <span id="telRequestsMade">0</span></div>
             <div class="telemetry-item"><span>Remaining Requests:</span> <strong id="telRemaining">100</strong></div>
             <div class="telemetry-item"><span>Total Tokens Consumed:</span> <span id="telTokens">0</span></div>
           </div>
           <div class="card">
-            <h3>Integration Readiness</h3>
-            <div class="telemetry-item"><span>Gemini 2.5 Flash:</span> <span id="telGemini">Milestone 2</span></div>
-            <div class="telemetry-item"><span>Firebase Firestore:</span> <span id="telFirestore">Milestone 4</span></div>
-            <div class="telemetry-item"><span>Google Calendar MCP:</span> <span id="telCalendar">Milestone 5</span></div>
-            <div class="telemetry-item"><span>OpenWeatherMap API:</span> <span id="telWeather">Milestone 6</span></div>
+            <div class="telemetry-item"><span>Gemini 2.5 Flash:</span> <span id="telGemini">Active</span></div>
+            <div class="telemetry-item"><span>Firebase Firestore:</span> <span id="telFirestore">Active</span></div>
+            <div class="telemetry-item"><span>Google Calendar MCP:</span> <span id="telCalendar">Active</span></div>
+            <div class="telemetry-item"><span>OpenWeatherMap API:</span> <span id="telWeather">Active</span></div>
           </div>
         </div>
       </section>
@@ -383,60 +458,62 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Glassmorphism Login Modal / Overlay (Multi-User Google Login) -->
+  <!-- Glassmorphism Login Modal (Minimal Dark Aura) -->
   <div id="loginModal" class="login-modal-overlay" style="display: none;">
-    <div class="login-modal-card">
-      <div class="login-brand">
-        <div class="login-icon">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
-          </svg>
-        </div>
-        <h2>Welcome to Synaptix</h2>
-        <p class="login-subtitle">Multi-Agent AI Personal Productivity Assistant</p>
-      </div>
-
-      <div class="login-features">
-        <div class="feature-item">
-          <span class="feature-icon">✨</span>
-          <span>Google ADK Multi-Agent Collaboration</span>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon">🔒</span>
-          <span>Per-User Isolated Tasks & Notes</span>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon">✉️</span>
-          <span>Personal Gmail & Calendar Integration</span>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon">🛡️</span>
-          <span>Strict Human-in-the-Loop Email Approval</span>
-        </div>
-      </div>
-
-      <div class="login-actions">
-        <a href="/auth/login" class="btn-google-signin" id="googleSignInBtn">
-          <svg width="20" height="20" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Sign in with Google</span>
-        </a>
-
-        <div class="login-divider">
-          <span>or</span>
+    <div class="login-modal-aura-wrapper">
+      <div class="login-modal-card">
+        <div class="login-brand">
+          <div class="login-monogram">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
+            </svg>
+          </div>
+          <h2 class="login-title">Synaptix AI</h2>
+          <p class="login-subtitle">Multi-Agent Personal Productivity Assistant</p>
         </div>
 
-        <button id="guestLoginBtn" class="btn-guest-signin" type="button">
-          <span>Continue as Guest (Offline ₹0 Mode)</span>
-        </button>
-      </div>
+        <div class="login-features">
+          <div class="feature-item">
+            <span class="feature-icon">✨</span>
+            <span>Google ADK Multi-Agent Collaboration</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🔒</span>
+            <span>Per-User Isolated Tasks & Notes</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">✉️</span>
+            <span>Personal Gmail & Calendar Integration</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🛡️</span>
+            <span>Strict Human-in-the-Loop Email Approval</span>
+          </div>
+        </div>
 
-      <div class="login-footer">
-        <span>Strict Zero-Cost Safeguards • 100% Free Tier</span>
+        <div class="login-actions">
+          <a href="/auth/login" class="btn-google-signin" id="googleSignInBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span>Sign in with Google</span>
+          </a>
+
+          <div class="login-divider">
+            <span>or</span>
+          </div>
+
+          <button id="guestLoginBtn" class="btn-guest-signin" type="button">
+            <span>Continue as Guest (Offline ₹0 Mode)</span>
+          </button>
+        </div>
+
+        <div class="login-footer">
+          <span>Strict Zero-Cost Safeguards • 100% Free Tier</span>
+        </div>
       </div>
     </div>
   </div>

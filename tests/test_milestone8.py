@@ -68,6 +68,7 @@ def test_milestone8_ui():
             ("tab-tasks", "Tasks Management View"),
             ("tab-notes", "Stored Notes & Search View"),
             ("tab-calendar", "Google Calendar & MCP Conflict Checker"),
+            ("tab-gmail", "Gmail Drafts & Human-in-the-Loop Queue"),
             ("tab-planner", "Smart Day Planner & Weather Outlook"),
             ("tab-telemetry", "Budget Safeguards & Telemetry"),
         ]
@@ -82,6 +83,7 @@ def test_milestone8_ui():
         assert "Tasks" in html
         assert "Notes" in html
         assert "Calendar" in html
+        assert "Gmail" in html
         assert "Planner" in html
         print("  ✅ All 5 agent roster chips present in top header")
 
@@ -101,6 +103,7 @@ def test_milestone8_ui():
         assert "showToast" in js
         assert "loadTimetable" in js
         assert "loadWeather" in js
+        assert "loadDrafts" in js
         assert "clearChatBtn" in js
         assert "copyPlanBtn" in js
         print(f"  ✅ app.js verified with toast notifications and clipboard export ({len(js)} bytes)")
