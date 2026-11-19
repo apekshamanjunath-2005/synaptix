@@ -88,74 +88,82 @@ class MultiAgentOrchestrator:
             parts=[genai_types.Part.from_text(text=user_input)],
         )
 
-        response_parts: List[str] = []
-        activated_agents: List[str] = []
-        tools_executed: List[str] = []
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            response_parts: List[str] = []
+            activated_agents: List[str] = []
+            tools_executed: List[str] = []
 
-        try:
-            async for event in self.runner.run_async(
-                user_id=USER_ID,
-                session_id=sid,
-                new_message=content,
-            ):
-                # Track agent node activity
-                if hasattr(event, "node_name") and event.node_name:
-                    if event.node_name not in activated_agents:
-                        activated_agents.append(event.node_name)
+            try:
+                async for event in self.runner.run_async(
+                    user_id=USER_ID,
+                    session_id=sid,
+                    new_message=content,
+                ):
+                    # Track agent node activity
+                    if hasattr(event, "node_name") and event.node_name:
+                        if event.node_name not in activated_agents:
+                            activated_agents.append(event.node_name)
 
-                # Track tool calls
-                if hasattr(event, "get_function_calls"):
-                    calls = event.get_function_calls()
-                    if calls:
-                        for call in calls:
-                            tool_name = call.name if hasattr(call, "name") else str(call)
-                            tools_executed.append(tool_name)
-                            usage_tracker.record_tool_call(tool_name)
+                    # Track tool calls
+                    if hasattr(event, "get_function_calls"):
+                        calls = event.get_function_calls()
+                        if calls:
+                            for call in calls:
+                                tool_name = call.name if hasattr(call, "name") else str(call)
+                                tools_executed.append(tool_name)
+                                usage_tracker.record_tool_call(tool_name)
 
-                # Collect final response text
-                if hasattr(event, "is_final_response") and event.is_final_response():
-                    target_content = getattr(event, "content", None) or getattr(event, "message", None)
-                    if target_content and hasattr(target_content, "parts"):
-                        for part in target_content.parts:
-                            if hasattr(part, "text") and part.text:
-                                response_parts.append(part.text)
+                    # Collect final response text
+                    if hasattr(event, "is_final_response") and event.is_final_response():
+                        target_content = getattr(event, "content", None) or getattr(event, "message", None)
+                        if target_content and hasattr(target_content, "parts"):
+                            for part in target_content.parts:
+                                if hasattr(part, "text") and part.text:
+                                    response_parts.append(part.text)
 
-            final_text = "\n".join(response_parts) if response_parts else "Coordinator completed the task."
-            usage_tracker.record_llm_request(tokens_used=len(final_text) // 4)
+                final_text = "\n".join(response_parts) if response_parts else "Coordinator completed the task."
+                usage_tracker.record_llm_request(tokens_used=len(final_text) // 4)
 
-            return {
-                "session_id": sid,
-                "reply": final_text,
-                "orchestration": {
-                    "root_agent": "SynaptixCoordinator",
-                    "activated_agents": activated_agents or ["SynaptixCoordinator"],
-                    "tools_executed": tools_executed,
-                    "delegation_mode": "google_adk_live",
-                },
-                "budget_telemetry": usage_tracker.get_stats(),
-            }
+                return {
+                    "session_id": sid,
+                    "reply": final_text,
+                    "orchestration": {
+                        "root_agent": "SynaptixCoordinator",
+                        "activated_agents": activated_agents or ["SynaptixCoordinator"],
+                        "tools_executed": tools_executed,
+                        "delegation_mode": "google_adk_live",
+                    },
+                    "budget_telemetry": usage_tracker.get_stats(),
+                }
 
-        except Exception as exc:
-            logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
-            fallback = await self._deterministic_offline_delegation(user_input, sid)
-            err_str = str(exc)
-            if "402" in err_str or "prepayment" in err_str.lower():
-                banner = (
-                    "⚠️ **Google AI Studio 402 Notice:** The configured Gemini API key is linked to a project requiring prepayment credits. "
-                    "To use the 100% Free Tier (₹0), create a key using **'Create API key in new project'** at [Google AI Studio](https://aistudio.google.com/).\n\n"
-                    "---\n\n"
-                )
-            elif "429" in err_str or "quota" in err_str.lower():
-                banner = (
-                    "⚠️ **Rate Limit Notice:** Google AI Studio free tier rate limit reached. "
-                    "Serving request via zero-cost local agent engine.\n\n---\n\n"
-                )
-            else:
-                banner = f"⚠️ *Note: Live Gemini call encountered an issue ({err_str[:90]}). Fulfilled via zero-cost local engine:*\n\n---\n\n"
+            except Exception as exc:
+                err_str = str(exc)
+                if ("503" in err_str or "UNAVAILABLE" in err_str) and attempt < max_attempts - 1:
+                    logger.warning("Gemini 503 capacity spike on attempt %d. Retrying in 1.5s...", attempt + 1)
+                    import asyncio
+                    await asyncio.sleep(1.5)
+                    continue
 
-            fallback["reply"] = banner + fallback["reply"]
-            fallback["orchestration"]["live_adk_error"] = str(exc)
-            return fallback
+                logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
+                fallback = await self._deterministic_offline_delegation(user_input, sid)
+                if "402" in err_str or "prepayment" in err_str.lower():
+                    banner = (
+                        "⚠️ **Google AI Studio 402 Notice:** The configured Gemini API key is linked to a project requiring prepayment credits. "
+                        "To use the 100% Free Tier (₹0), create a key using **'Create API key in new project'** at [Google AI Studio](https://aistudio.google.com/).\n\n"
+                        "---\n\n"
+                    )
+                elif "429" in err_str or "quota" in err_str.lower():
+                    banner = (
+                        "⚠️ **Rate Limit Notice:** Google AI Studio free tier rate limit reached. "
+                        "Serving request via zero-cost local agent engine.\n\n---\n\n"
+                    )
+                else:
+                    banner = f"⚠️ *Note: Live Gemini call encountered an issue ({err_str[:90]}). Fulfilled via zero-cost local engine:*\n\n---\n\n"
+
+                fallback["reply"] = banner + fallback["reply"]
+                fallback["orchestration"]["live_adk_error"] = str(exc)
+                return fallback
 
     async def _deterministic_offline_delegation(self, user_input: str, session_id: str) -> Dict[str, Any]:
         """

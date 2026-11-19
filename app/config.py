@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Google Gemini API (Configured in Milestone 2)
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-flash-latest"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Firebase Firestore (Configured in Milestone 4)
     FIREBASE_PROJECT_ID: Optional[str] = None
