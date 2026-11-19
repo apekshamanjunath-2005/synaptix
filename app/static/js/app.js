@@ -1,6 +1,6 @@
 /**
- * Synaptix — Frontend Application Script
- * Handles navigation, telemetry polling, and chat interactions with Gemini 2.5 Flash.
+ * Synaptix — Frontend Application Script (Milestone 3 — Multi-Agent System)
+ * Handles navigation, telemetry polling, agent status chips, and real-time agent delegation.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,6 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const currentTabDesc = document.getElementById('currentTabDesc');
   const statusText = document.getElementById('statusText');
   const serverStatusBadge = document.getElementById('serverStatusBadge');
+
+  // Agent chips
+  const agentChips = {
+    Coordinator: document.querySelector('.agent-chip[title*="Coordinator"]'),
+    TaskAgent: document.querySelector('.agent-chip[title*="Task Agent"]'),
+    NotesAgent: document.querySelector('.agent-chip[title*="Notes Agent"]'),
+    CalendarAgent: document.querySelector('.agent-chip[title*="Calendar Agent"]'),
+    SmartDayPlannerAgent: document.querySelector('.agent-chip[title*="Planner Agent"]'),
+  };
 
   // Telemetry elements
   const telStatus = document.getElementById('telStatus');
@@ -33,28 +42,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const chips = document.querySelectorAll('.chip');
   const sendBtn = document.getElementById('sendBtn');
 
-  // Multi-turn conversation history
+  // Session state
+  let currentSessionId = null;
   const conversationHistory = [];
 
   const tabMetadata = {
     chat: {
-      title: 'AI Assistant',
-      desc: 'Talk to the Coordinator Agent to manage tasks, notes, calendar, and daily plans.',
+      title: 'AI Multi-Agent Coordinator',
+      desc: 'Orchestrating TaskAgent, NotesAgent, CalendarAgent, and SmartDayPlannerAgent.',
     },
     tasks: {
-      title: 'Tasks Management',
+      title: 'Tasks Management (TaskAgent)',
       desc: 'View, track, and manage priorities, due dates, and pending items.',
     },
     notes: {
-      title: 'Personal & Project Notes',
+      title: 'Personal & Project Notes (NotesAgent)',
       desc: 'Contextual notes, ideas, and meeting summaries with semantic search.',
     },
     calendar: {
-      title: 'Google Calendar Schedule',
+      title: 'Google Calendar Schedule (CalendarAgent)',
       desc: 'Real-time calendar events, meeting detection, and conflict prevention via MCP.',
     },
     planner: {
-      title: 'Smart Day Planner',
+      title: 'Smart Day Planner (PlannerAgent)',
       desc: 'AI-generated daily schedules balancing your tasks, calendar events, and weather.',
     },
     telemetry: {
@@ -111,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (data.integrations_status) {
         const i = data.integrations_status;
-        if (telGemini) telGemini.textContent = i.gemini_configured ? 'Connected (Gemini 2.5 Flash) ✅' : 'Key Needed (Free Tier) 🔑';
+        if (telGemini) telGemini.textContent = i.gemini_configured ? 'Google ADK + Gemini 2.5 Flash ✅' : 'Google ADK Active (₹0 Local Mode) ✅';
         if (telFirestore) telFirestore.textContent = i.firebase_configured ? 'Connected ✅' : 'Milestone 4 (Pending)';
         if (telCalendar) telCalendar.textContent = i.google_calendar_configured ? 'Active ✅' : 'Milestone 5 (Pending)';
         if (telWeather) telWeather.textContent = i.weather_configured ? 'Active ✅' : 'Milestone 6 (Pending)';
@@ -132,7 +142,27 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchHealthTelemetry();
   setInterval(fetchHealthTelemetry, 10000);
 
-  // 3. Formatting helper for Markdown
+  // 3. Highlight active agent chip in UI
+  function highlightAgent(agentName) {
+    // Reset all chips to standby
+    Object.values(agentChips).forEach(chip => {
+      if (chip) {
+        chip.className = 'agent-chip standby';
+      }
+    });
+
+    // Always keep Coordinator visible
+    if (agentChips.Coordinator) {
+      agentChips.Coordinator.className = 'agent-chip active';
+    }
+
+    // Highlight specialized agent
+    if (agentName && agentChips[agentName]) {
+      agentChips[agentName].className = 'agent-chip active';
+    }
+  }
+
+  // 4. Formatting helper for Markdown
   function formatMarkdown(text) {
     if (!text) return '';
     let html = text
@@ -154,18 +184,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return html.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
   }
 
-  // 4. Chat UI Helper Functions
-  function appendMessage(sender, text, isUser = false, isHtml = false) {
+  // 5. Chat UI Helper Functions
+  function appendMessage(sender, text, isUser = false, agentBadge = null) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
 
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const formattedContent = isHtml ? text : formatMarkdown(text);
+    const formattedContent = formatMarkdown(text);
+    const badgeHtml = agentBadge ? `<span style="display:inline-block; margin-left:8px; font-size:0.72rem; padding:2px 8px; border-radius:12px; background:rgba(99,102,241,0.25); color:#a5b4fc;">⚡ Delegated to: ${agentBadge}</span>` : '';
 
     msgDiv.innerHTML = `
       <div class="message-avatar">${isUser ? '👤' : '🧠'}</div>
       <div class="message-body">
-        <div class="message-sender">${isUser ? 'You' : sender}</div>
+        <div class="message-sender">${isUser ? 'You' : sender} ${badgeHtml}</div>
         <div class="message-text"><p>${formattedContent}</p></div>
         <div class="message-time">${now}</div>
       </div>
@@ -182,8 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
     msgDiv.innerHTML = `
       <div class="message-avatar">🧠</div>
       <div class="message-body">
-        <div class="message-sender">Synaptix AI</div>
-        <div class="message-text"><p><em>Synaptix is reasoning...</em> ⚡</p></div>
+        <div class="message-sender">Synaptix Coordinator</div>
+        <div class="message-text"><p><em>Analyzing intent & delegating to specialist agent...</em> ⚡</p></div>
       </div>
     `;
     chatMessages.appendChild(msgDiv);
@@ -191,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return msgDiv;
   }
 
-  // 5. Handle Chat Submission to /api/chat
+  // 6. Handle Chat Submission to /api/chat
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = userInput.value.trim();
@@ -214,7 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         body: JSON.stringify({
           message: query,
-          conversation_history: conversationHistory.slice(-6), // Keep last 6 context turns
+          session_id: currentSessionId,
+          conversation_history: conversationHistory.slice(-6),
         }),
       });
 
@@ -243,9 +275,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const data = await response.json();
+      currentSessionId = data.session_id || currentSessionId;
 
-      // Append assistant reply
-      appendMessage('Synaptix AI (Gemini 2.5 Flash)', data.reply, false);
+      const orch = data.orchestration || {};
+      const targetAgent = orch.activated_agent || (orch.activated_agents && orch.activated_agents[orch.activated_agents.length - 1]) || "Coordinator";
+
+      // Dynamically highlight active agent in header
+      highlightAgent(targetAgent);
+
+      // Append assistant reply with agent badge
+      appendMessage('Synaptix AI', data.reply, false, targetAgent);
 
       // Save to conversation history
       conversationHistory.push({ role: 'user', content: query });

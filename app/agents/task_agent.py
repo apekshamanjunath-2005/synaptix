@@ -1,0 +1,51 @@
+"""
+Task Agent (Specialist Agent)
+Responsible for task creation, retrieval, updates, status marking, and deletions.
+"""
+
+from google.adk.agents import LlmAgent
+from google.adk.tools import FunctionTool
+from app.config import get_settings
+from app.agents.tools import (
+    task_create,
+    task_list,
+    task_update,
+    task_delete,
+    get_today_date,
+    get_tomorrow_date,
+)
+
+settings = get_settings()
+
+TASK_AGENT_INSTRUCTION = """
+You are the Task Specialist Agent for Synaptix Personal Productivity Assistant.
+Your sole responsibility is managing user tasks, deadlines, and priorities.
+
+CORE RESPONSIBILITIES:
+1. Create new tasks (title, due_date YYYY-MM-DD, priority: low/medium/high).
+2. Retrieve and list pending or completed tasks.
+3. Update task status ('pending', 'in_progress', 'completed') or priority.
+4. Mark tasks as completed when the user finishes them.
+5. Delete tasks when explicitly requested.
+
+RULES:
+- Always call the provided tools to perform database actions. Never fabricate task IDs or data.
+- If relative dates are mentioned ("tomorrow", "next Monday"), call get_today_date() or get_tomorrow_date() to calculate exact YYYY-MM-DD dates.
+- When listing tasks, format them clearly with bullet points, showing ID, Title, Due Date, and Priority.
+- Maintain a concise, encouraging, and productive tone.
+"""
+
+task_agent = LlmAgent(
+    name="TaskAgent",
+    model=settings.GEMINI_MODEL,
+    description="Specialist agent for managing tasks, to-dos, priorities, deadlines, and status updates.",
+    instruction=TASK_AGENT_INSTRUCTION,
+    tools=[
+        FunctionTool(func=task_create),
+        FunctionTool(func=task_list),
+        FunctionTool(func=task_update),
+        FunctionTool(func=task_delete),
+        FunctionTool(func=get_today_date),
+        FunctionTool(func=get_tomorrow_date),
+    ],
+)
