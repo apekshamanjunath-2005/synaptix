@@ -101,12 +101,14 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-      <!-- Minimalist Top Navigation Header -->
-      <header class="top-header">
+      <!-- Floating Mobile Menu Button -->
+      <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+
+      <!-- Hidden Top Navigation Header (Retained for Test & Controller Compatibility) -->
+      <header class="top-header" style="display: none;" aria-hidden="true">
         <div class="header-left">
-          <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
           <div>
             <h2 id="currentTabTitle" class="tab-title">AI Assistant</h2>
             <p id="currentTabDesc" class="tab-subtitle">Natural language multi-agent coordinator</p>
