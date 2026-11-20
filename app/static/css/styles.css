@@ -473,6 +473,55 @@ a {
   box-shadow: 0 0 8px rgba(212, 175, 106, 0.5);
 }
 
+.nav-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-guest-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(212, 175, 106, 0.12);
+  border: 1px solid rgba(212, 175, 106, 0.35);
+  color: #D4AF6A;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+}
+
+.nav-guest-btn:hover {
+  background: rgba(212, 175, 106, 0.22);
+  border-color: #D4AF6A;
+  transform: translateY(-1px);
+}
+
+.nav-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #111827;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: all 0.18s var(--ease-out);
+}
+
+.nav-signin-btn:hover {
+  background: #F3F4F6;
+  transform: translateY(-1px);
+}
+
 .user-profile-card.navbar-profile-card {
   display: flex;
   align-items: center;

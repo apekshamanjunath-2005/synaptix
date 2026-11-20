@@ -41,5 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
-# Launch production server with dynamic Cloud Run port handling
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Launch production server with dynamic port and proxy headers handling
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'

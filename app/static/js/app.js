@@ -2328,6 +2328,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const userName = document.getElementById('userName');
   const userEmail = document.getElementById('userEmail');
   const guestLoginBtn = document.getElementById('guestLoginBtn');
+  const navAuthActions = document.getElementById('navAuthActions');
+  const navGuestBtn = document.getElementById('navGuestBtn');
+
+  async function activateGuestMode() {
+    try {
+      showToast('Activating Guest Mode...', 'info');
+      const res = await fetch('/auth/guest', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+      });
+      if (res.ok || res.redirected) {
+        showToast('Signed in as Guest (Offline ₹0 Mode)', 'success');
+        if (loginModal) loginModal.style.display = 'none';
+        await checkAuth();
+        loadTasks();
+        loadNotes();
+        loadAllCalendarData();
+        loadDrafts();
+      } else {
+        window.location.href = '/auth/guest';
+      }
+    } catch (e) {
+      console.warn('Guest activation fallback to navigation:', e);
+      window.location.href = '/auth/guest';
+    }
+  }
 
   async function checkAuth() {
     try {
@@ -2336,6 +2362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.authenticated) {
           if (loginModal) loginModal.style.display = 'none';
+          if (navAuthActions) navAuthActions.style.display = 'none';
           if (userProfileCard) userProfileCard.style.display = 'flex';
           if (userName) userName.textContent = data.name || 'User';
           if (userEmail) userEmail.textContent = data.email || '';
@@ -2354,26 +2381,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (loginModal) loginModal.style.display = 'flex';
+    if (navAuthActions) navAuthActions.style.display = 'flex';
     if (userProfileCard) userProfileCard.style.display = 'none';
     return false;
   }
 
   if (guestLoginBtn) {
-    guestLoginBtn.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/auth/guest', { method: 'POST' });
-        if (res.ok || res.redirected) {
-          showToast('Signed in as Guest (Offline ₹0)', 'success');
-          await checkAuth();
-          loadTasks();
-          loadNotes();
-          loadAllCalendarData();
-          loadDrafts();
-        }
-      } catch (e) {
-        showToast('Guest sign-in error: ' + e.message, 'error');
-      }
-    });
+    guestLoginBtn.addEventListener('click', activateGuestMode);
+  }
+
+  if (navGuestBtn) {
+    navGuestBtn.addEventListener('click', activateGuestMode);
   }
 
   // Initial Preloads

@@ -157,6 +157,25 @@ class FirestoreService:
         from firebase_admin import credentials, firestore
 
         PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+        # 1. Direct JSON credentials from environment variable (for Render, Cloud Run, etc.)
+        env_json = os.getenv("FIREBASE_CREDENTIALS_JSON") or getattr(self.settings, "FIREBASE_CREDENTIALS_JSON", None)
+        if env_json and env_json.strip():
+            try:
+                cred_dict = json.loads(env_json.strip())
+                if not firebase_admin._apps:
+                    cred = credentials.Certificate(cred_dict)
+                    project_id = self.settings.FIREBASE_PROJECT_ID or cred_dict.get("project_id")
+                    init_opts = {"projectId": project_id} if project_id else {}
+                    firebase_admin.initialize_app(cred, init_opts)
+                self.client = firestore.client()
+                self.is_live_firebase = True
+                logger.info("✅ Connected to Live Firebase Firestore via FIREBASE_CREDENTIALS_JSON (Project: %s)",
+                            self.settings.FIREBASE_PROJECT_ID or cred_dict.get("project_id", "Default"))
+                return
+            except Exception as e:
+                logger.error("Failed to connect to Live Firebase via FIREBASE_CREDENTIALS_JSON: %s", e)
+
+        # 2. File path credentials from settings or local discovery
         cred_path = self.settings.FIREBASE_CREDENTIALS_PATH
         resolved_cred = None
 

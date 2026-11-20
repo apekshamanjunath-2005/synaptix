@@ -4,6 +4,7 @@ Provides web-based OAuth login, callback token exchange, userinfo loading,
 session management with HTTP-only signed JWT cookies, and user isolation.
 """
 
+import os
 import logging
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,7 @@ from typing import Optional, Dict, Any
 import httpx
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -113,8 +114,56 @@ def get_current_user(request: Request) -> Dict[str, Any]:
 # ENDPOINTS
 # ────────────────────────────────────────────────────────────────────────────
 
+def get_redirect_uri(request: Optional[Request] = None) -> str:
+    """
+    Derives the effective OAuth 2.0 redirect URI.
+    Priority:
+    1. Explicit OAUTH_REDIRECT_URI from env if explicitly configured
+    2. RENDER_EXTERNAL_URL or BASE_URL if running on Render / Cloud Run
+    3. Dynamic derivation from incoming Request headers (reverse proxy)
+    4. Settings default / local development fallback (http://127.0.0.1:8000/auth/google/callback)
+    """
+    env_uri = os.getenv("OAUTH_REDIRECT_URI")
+    if env_uri and env_uri.strip():
+        return env_uri.strip()
+
+    render_url = os.getenv("RENDER_EXTERNAL_URL") or settings.RENDER_EXTERNAL_URL
+    if render_url and render_url.strip():
+        return f"{render_url.strip().rstrip('/')}/auth/google/callback"
+
+    base_url = os.getenv("BASE_URL") or settings.BASE_URL
+    if base_url and base_url.strip():
+        return f"{base_url.strip().rstrip('/')}/auth/google/callback"
+
+    if request:
+        proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        if host and "127.0.0.1" not in host and "localhost" not in host:
+            return f"{proto}://{host}/auth/google/callback"
+
+    return settings.OAUTH_REDIRECT_URI or "http://127.0.0.1:8000/auth/google/callback"
+
+
+@router.get("/debug")
+async def auth_debug(request: Request):
+    """Diagnostic endpoint to inspect active OAuth redirect URI and proxy headers."""
+    return {
+        "effective_redirect_uri": get_redirect_uri(request),
+        "settings_oauth_redirect_uri": settings.OAUTH_REDIRECT_URI,
+        "render_external_url": os.getenv("RENDER_EXTERNAL_URL"),
+        "base_url": os.getenv("BASE_URL"),
+        "client_id_configured": bool(settings.effective_client_id),
+        "request_url": str(request.url),
+        "headers": {
+            "host": request.headers.get("host"),
+            "x-forwarded-host": request.headers.get("x-forwarded-host"),
+            "x-forwarded-proto": request.headers.get("x-forwarded-proto"),
+        }
+    }
+
+
 @router.get("/login")
-async def login():
+async def login(request: Request):
     """
     Redirects user to Google OAuth 2.0 consent screen with requested scopes
     including openid, email, profile, Calendar, and Gmail compose.
@@ -126,10 +175,11 @@ async def login():
             detail="Google OAuth Client ID is not configured. Set GOOGLE_CLIENT_ID or GOOGLE_CALENDAR_CLIENT_ID in .env."
         )
 
+    redirect_uri = get_redirect_uri(request)
     scope_str = " ".join(settings.GOOGLE_OAUTH_SCOPES)
     params = {
         "client_id": client_id,
-        "redirect_uri": settings.OAUTH_REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": scope_str,
         "access_type": "offline",
@@ -137,12 +187,13 @@ async def login():
         "include_granted_scopes": "true",
     }
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
-    logger.info("Redirecting to Google OAuth login screen with scopes: %s", scope_str)
+    logger.info("Redirecting to Google OAuth login screen with scopes: %s, redirect_uri: %s", scope_str, redirect_uri)
     return RedirectResponse(url=auth_url, status_code=302)
 
 
 @router.get("/google/callback")
 async def google_callback(
+    request: Request,
     code: Optional[str] = None,
     error: Optional[str] = None,
     state: Optional[str] = None
@@ -169,12 +220,13 @@ async def google_callback(
         )
 
     # 1. Exchange authorization code for tokens
+    redirect_uri = get_redirect_uri(request)
     token_url = "https://oauth2.googleapis.com/token"
     token_payload = {
         "code": code,
         "client_id": client_id,
         "client_secret": client_secret,
-        "redirect_uri": settings.OAUTH_REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
     }
 
@@ -284,10 +336,10 @@ async def logout():
 
 @router.post("/guest")
 @router.get("/guest")
-async def guest_login():
+async def guest_login(request: Request):
     """
-    Instant zero-cost guest login for offline development and testing.
-    Creates a guest profile and issues a session cookie.
+    Instant zero-cost guest login for offline development, evaluation, and testing.
+    Creates a guest profile and issues a session cookie with 302 redirect.
     """
     guest_id = "guest_user"
     profile = {
@@ -301,6 +353,7 @@ async def guest_login():
         email=profile["email"],
         name=profile["name"]
     )
+
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
         key=COOKIE_NAME,
@@ -310,5 +363,5 @@ async def guest_login():
         max_age=86400 * 30,
         secure=False
     )
-    logger.info("Guest session activated.")
+    logger.info("Guest session activated for user_id=%s", guest_id)
     return response
