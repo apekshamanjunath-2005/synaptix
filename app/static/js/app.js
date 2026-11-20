@@ -93,26 +93,52 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 2. SIDEBAR COLLAPSE & MOBILE DRAWER
+  // 2. RECENT CHATS SLIDE-OVER DRAWER & NAVIGATION
   // ══════════════════════════════════════════════════════════════════════════
+  const historyDrawerBtn = document.getElementById('historyDrawerBtn');
+  const navbarHistoryBtn = document.getElementById('navbarHistoryBtn');
+  const sessionsDrawerOverlay = document.getElementById('sessionsDrawerOverlay');
+  const closeSessionsDrawer = document.getElementById('closeSessionsDrawer');
+
+  function openSessionsDrawerFunc() {
+    if (sidebar) sidebar.classList.add('drawer-open');
+    if (sessionsDrawerOverlay) sessionsDrawerOverlay.classList.add('active');
+  }
+
+  function closeSessionsDrawerFunc() {
+    if (sidebar) sidebar.classList.remove('drawer-open');
+    if (sessionsDrawerOverlay) sessionsDrawerOverlay.classList.remove('active');
+  }
+
+  if (historyDrawerBtn) historyDrawerBtn.addEventListener('click', openSessionsDrawerFunc);
+  if (navbarHistoryBtn) navbarHistoryBtn.addEventListener('click', openSessionsDrawerFunc);
+  if (closeSessionsDrawer) closeSessionsDrawer.addEventListener('click', closeSessionsDrawerFunc);
+  if (sessionsDrawerOverlay) sessionsDrawerOverlay.addEventListener('click', closeSessionsDrawerFunc);
+
   if (sidebarToggle && sidebar) {
     sidebarToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
+      if (sidebar.classList.contains('drawer-open')) {
+        closeSessionsDrawerFunc();
+      } else {
+        openSessionsDrawerFunc();
+      }
     });
   }
 
   if (mobileSidebarToggle && sidebar) {
     mobileSidebarToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('mobile-open');
+      if (sidebar.classList.contains('drawer-open')) {
+        closeSessionsDrawerFunc();
+      } else {
+        openSessionsDrawerFunc();
+      }
     });
   }
 
-  // Close mobile sidebar on backdrop click
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('mobile-open')) {
-      if (!sidebar.contains(e.target) && !mobileSidebarToggle.contains(e.target)) {
-        sidebar.classList.remove('mobile-open');
-      }
+  // Close drawer on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeSessionsDrawerFunc();
     }
   });
 
@@ -631,6 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateChatDockState();
       highlightAgent('Coordinator');
+      closeSessionsDrawerFunc();
       if (userInput) userInput.focus();
     } catch (err) {
       showToast('Error switching session: ' + err.message, 'error');
@@ -644,6 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
     conversationHistory.length = 0;
     updateChatDockState();
     highlightAgent('Coordinator');
+    closeSessionsDrawerFunc();
 
     if (chatSessionsList) {
       chatSessionsList.querySelectorAll('.session-item').forEach((it) => it.classList.remove('active'));
