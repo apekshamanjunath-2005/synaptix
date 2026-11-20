@@ -7,6 +7,7 @@ Generates an aggregated validation report.
 import sys
 import subprocess
 import time
+import json
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
