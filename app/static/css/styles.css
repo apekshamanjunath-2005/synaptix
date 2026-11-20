@@ -2189,17 +2189,211 @@ a {
 .tt-blocks-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tt-block-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: #141519;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-left: 3px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.2s var(--ease-out);
+  gap: 16px;
+}
+
+.tt-block-item:hover {
+  background: #17181E;
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* Category Left Border Accents */
+.tt-block-item.cat-focus { border-left-color: #6366F1; }
+.tt-block-item.cat-meeting { border-left-color: #8B5CF6; }
+.tt-block-item.cat-break { border-left-color: #10B981; }
+.tt-block-item.cat-wrapup { border-left-color: #D4AF6A; }
+.tt-block-item.cat-routine { border-left-color: #38BDF8; }
+
+.tt-block-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-block-time {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #D4AF6A;
+  background: rgba(212, 175, 106, 0.08);
+  border: 1px solid rgba(212, 175, 106, 0.2);
+  padding: 3px 9px;
   border-radius: var(--radius-sm);
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.tt-block-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-block-title {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #F4F3EE;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-block-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Category Pill Badges */
+.tt-cat-badge {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.tt-cat-badge.tt-cat-focus,
+.cat-focus .tt-cat-badge {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.28);
+  color: #A5B4FC;
+}
+
+.tt-cat-badge.tt-cat-meeting,
+.cat-meeting .tt-cat-badge {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.28);
+  color: #C4B5FD;
+}
+
+.tt-cat-badge.tt-cat-break,
+.cat-break .tt-cat-badge {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.28);
+  color: #6EE7B7;
+}
+
+.tt-cat-badge.tt-cat-wrapup,
+.cat-wrapup .tt-cat-badge {
+  background: rgba(212, 175, 106, 0.12);
+  border-color: rgba(212, 175, 106, 0.28);
+  color: #E6D2A8;
+}
+
+.tt-cat-badge.tt-cat-routine,
+.cat-routine .tt-cat-badge {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: #BAE6FD;
+}
+
+/* Premium Linear-Grade Delete Button */
+.tt-del-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+  user-select: none;
+  outline: none;
+}
+
+.tt-del-btn svg {
+  stroke: var(--text-muted);
+  transition: stroke 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+  flex-shrink: 0;
+}
+
+.tt-del-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #F87171;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.tt-del-btn:hover svg {
+  stroke: #F87171;
+  transform: scale(1.08);
+}
+
+.tt-del-btn:active {
+  transform: translateY(0);
+}
+
+/* Universal Item Delete Button (Tasks, Notes, Lists) */
+.item-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+}
+
+.item-del-btn svg {
+  stroke: var(--text-muted);
+  transition: stroke 0.18s var(--ease-out);
+}
+
+.item-del-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #F87171;
+}
+
+.item-del-btn:hover svg {
+  stroke: #F87171;
+}
+
+@media (max-width: 640px) {
+  .tt-block-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .tt-block-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .tt-inline-form {

@@ -864,9 +864,11 @@ document.addEventListener('DOMContentLoaded', () => {
               Due: <strong>${t.due_date || 'No date'}</strong> • Priority: <span style="color:${t.priority === 'high' ? '#f87171' : t.priority === 'medium' ? '#fbbf24' : '#34d399'};text-transform:uppercase;">${t.priority}</span>
             </div>
           </div>
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;align-items:center;">
             ${t.status !== 'completed' ? `<button onclick="updateTaskStatus('${t.id}', 'completed')" class="secondary-btn btn-sm" style="color:#34d399;">✓ Done</button>` : `<button onclick="updateTaskStatus('${t.id}', 'pending')" class="secondary-btn btn-sm">↺ Reopen</button>`}
-            <button onclick="deleteTaskItem('${t.id}')" class="secondary-btn btn-sm" style="color:#f87171;">✕</button>
+            <button type="button" onclick="deleteTaskItem('${t.id}')" class="item-del-btn" title="Delete Task" aria-label="Delete Task">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
           </div>
         </div>
       `).join('');
@@ -981,7 +983,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
               ${(n.tags || []).map((tag) => `<span style="font-size:0.68rem;background:rgba(59,130,246,0.15);color:#93c5fd;padding:1px 6px;border-radius:4px;">#${tag}</span>`).join('')}
             </div>
-            <button onclick="deleteNoteItem('${n.id}')" style="background:transparent;border:none;color:#f87171;cursor:pointer;font-size:0.8rem;" title="Delete Note">✕</button>
+            <button type="button" onclick="deleteNoteItem('${n.id}')" class="item-del-btn" title="Delete Note" aria-label="Delete Note">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
           </div>
         </div>
       `).join('');
@@ -2139,14 +2143,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return `
         <div class="tt-block-item cat-${cat}">
           <div class="tt-block-left">
-            <span class="tt-block-time">${escapeHtml(b.start_time)} - ${escapeHtml(b.end_time)}</span>
-            <div>
-              <div class="tt-block-title">${escapeHtml(b.title)}</div>
+            <span class="tt-block-time">${escapeHtml(b.start_time)} – ${escapeHtml(b.end_time)}</span>
+            <div class="tt-block-title-group">
+              <span class="tt-block-title">${escapeHtml(b.title)}</span>
             </div>
           </div>
           <div class="tt-block-meta">
-            <span class="tt-cat-badge">${cat.toUpperCase()}</span>
-            <button type="button" class="tt-del-btn" onclick="deleteUserBlock('${activeTimetableDay}', '${b.id}')" title="Delete block">✕ Delete</button>
+            <span class="tt-cat-badge tt-cat-${cat}">${escapeHtml(cat.toUpperCase())}</span>
+            <button type="button" class="tt-del-btn" onclick="deleteUserBlock('${activeTimetableDay}', '${b.id}')" title="Delete time block" aria-label="Delete block">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span>Delete</span>
+            </button>
           </div>
         </div>
       `;
