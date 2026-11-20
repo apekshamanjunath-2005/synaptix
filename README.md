@@ -41,19 +41,6 @@ Synaptix delegates user requests across a root coordinator and four specialist a
 
 ---
 
-## 💰 Strict Zero-Cost Policy (₹0 Budget)
-
-| Component | Service Provider | Monthly Free Allowance | Synaptix Guarantee |
-| :--- | :--- | :--- | :--- |
-| **LLM Reasoning** | Google AI Studio (Gemini 2.5 Flash) | 15 RPM, 1M TPM, 1,500 RPD | Enforced 15 RPM burst limiter & 100 req/day quota |
-| **Multi-Agent Runtime** | Google ADK (`google-adk`) | Open Source / Local | Zero-cost local execution |
-| **Database** | Firebase Firestore (Spark Plan) | 50,000 reads, 20,000 writes/day | Free-tier compliant + Local JSON Simulator fallback |
-| **Calendar Tooling** | Google Calendar MCP | Official Free APIs | Local MCP Provider + offline JSON store |
-| **Weather Forecasts** | OpenWeatherMap v2.5 | 1,000,000 calls/month | Free tier + deterministic zero-cost simulation engine |
-| **Cloud Hosting** | Google Cloud Run | 2M requests, 360k vCPU-s/month | `--max-instances 1` & `--cpu-throttling` |
-
----
-
 ## 🛠 Technology Stack
 
 - **Language:** Python 3.12
