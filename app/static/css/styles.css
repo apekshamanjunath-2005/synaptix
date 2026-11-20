@@ -1824,11 +1824,15 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: transparent !important;
+  appearance: none;
+  -webkit-appearance: none;
   border: 1px solid var(--border-subtle);
   border-radius: 9px;
   color: var(--text-secondary);
   padding: 6px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1966,6 +1970,59 @@ a {
 .drawer-close-btn:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.06);
+}
+
+.drawer-notification-perm-bar {
+  margin: 14px 20px 0 20px;
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drawer-notification-perm-bar.is-granted {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.drawer-notification-perm-bar.is-denied {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.drawer-notif-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.drawer-notif-icon {
+  font-size: 1rem;
+}
+
+.drawer-notif-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--glow-blue);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.drawer-notif-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
 }
 
 .drawer-quick-card {
@@ -2195,6 +2252,101 @@ a {
   transform: translateY(-1px);
 }
 
+/* Inline Chat Reminder Due Alert Card */
+.chat-reminder-alert-card {
+  margin: 14px 0;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(255, 107, 61, 0.12), rgba(59, 130, 246, 0.08));
+  border: 1px solid rgba(255, 107, 61, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(255, 107, 61, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: toastSlideIn 0.3s ease-out;
+}
+
+.chat-rem-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-rem-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.chat-rem-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.chat-rem-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--glow-orange);
+  background: rgba(255, 107, 61, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 107, 61, 0.3);
+}
+
+.chat-rem-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chat-rem-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.4;
+}
+
+.chat-rem-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.chat-rem-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-rem-snooze {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.chat-rem-snooze:hover {
+  background: rgba(255, 107, 61, 0.15);
+  border-color: var(--glow-orange);
+  color: var(--glow-orange);
+}
+
+.chat-rem-dismiss {
+  background: linear-gradient(135deg, var(--glow-orange), #ea580c);
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 107, 61, 0.3);
+}
+
+.chat-rem-dismiss:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 107, 61, 0.5);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    15. INTERACTIVE MONTHLY CALENDAR GRID & SCHEDULE VIEW
    ══════════════════════════════════════════════════════════════════════════ */
@@ -2414,6 +2566,169 @@ a {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 6px;
+}
+
+/* Calendar Segmented View Switcher (Selected Date / Upcoming / Past) */
+.cal-segmented-bar {
+  display: flex;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.cal-seg-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.cal-seg-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cal-seg-btn.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(255, 107, 61, 0.12) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.cal-badge-pill {
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.cal-seg-btn.active .cal-badge-pill {
+  background: rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+}
+
+.cal-events-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-event-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  transition: var(--transition-smooth);
+}
+
+.cal-event-card:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-muted);
+  transform: translateY(-1px);
+}
+
+.cal-event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-event-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cal-event-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #fff;
+}
+
+.cal-event-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.cal-time-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.cal-time-badge.badge-today {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.cal-time-badge.badge-tomorrow {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.cal-time-badge.badge-soon {
+  background: rgba(255, 107, 61, 0.18);
+  color: #fdba74;
+  border: 1px solid rgba(255, 107, 61, 0.4);
+}
+
+.cal-time-badge.badge-future {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Past Events Styling (Muted & Distinct) */
+.cal-past-list .cal-event-card {
+  opacity: 0.72;
+  background: rgba(17, 19, 24, 0.5);
+  border: 1px dashed var(--border-subtle);
+}
+
+.cal-past-list .cal-event-card:hover {
+  opacity: 0.92;
+  background: var(--bg-surface-elevated);
+}
+
+.cal-ended-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.cal-past-list .cal-event-title {
+  color: var(--text-secondary);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

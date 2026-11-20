@@ -173,9 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
       if (targetTab === 'calendar') {
+        switchCalendarView('upcoming');
         renderCalendarMonth(calCurrentYear, calCurrentMonth);
         fetchMonthIndicators(calCurrentYear, calCurrentMonth);
-        selectCalendarDate(selectedCalendarDate);
+        loadAllCalendarData();
       }
       if (targetTab === 'gmail') loadDrafts();
       if (targetTab === 'planner') {
@@ -925,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const conflictStatusBadge = document.getElementById('conflictStatusBadge');
   const conflictResultText = document.getElementById('conflictResultText');
 
-  // Interactive Calendar Grid Elements
+  // Interactive Calendar Grid & Segmented View Elements
   const calCurrentMonthYear = document.getElementById('calCurrentMonthYear');
   const calPrevMonthBtn = document.getElementById('calPrevMonthBtn');
   const calNextMonthBtn = document.getElementById('calNextMonthBtn');
@@ -940,10 +941,134 @@ document.addEventListener('DOMContentLoaded', () => {
   const calSelectedAlertsContainer = document.getElementById('calSelectedAlertsContainer');
   const calSelectedTimetableContainer = document.getElementById('calSelectedTimetableContainer');
 
+  // Segmented View Elements
+  const calTabUpcoming = document.getElementById('calTabUpcoming');
+  const calTabSelectedDate = document.getElementById('calTabSelectedDate');
+  const calTabPast = document.getElementById('calTabPast');
+  const calViewUpcoming = document.getElementById('calViewUpcoming');
+  const calViewSelectedDate = document.getElementById('calViewSelectedDate');
+  const calViewPast = document.getElementById('calViewPast');
+  const calUpcomingContainer = document.getElementById('calUpcomingContainer');
+  const calPastContainer = document.getElementById('calPastContainer');
+  const calUpcomingBadge = document.getElementById('calUpcomingBadge');
+  const calPastBadge = document.getElementById('calPastBadge');
+  const calSelectedDateTabLabel = document.getElementById('calSelectedDateTabLabel');
+
   let calCurrentYear = new Date().getFullYear();
   let calCurrentMonth = new Date().getMonth();
   let selectedCalendarDate = new Date().toISOString().split('T')[0];
   let calMonthIndicators = {}; // dateStr -> { events: bool, tasks: bool, reminders: bool }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // TIME & DATE FORMATTING HELPERS (12-Hour Local Time & Relative Badges)
+  // ────────────────────────────────────────────────────────────────────────────
+  function format12hTime(timeStr) {
+    if (!timeStr) return '';
+    try {
+      const clean = timeStr.replace('Z', '');
+      const dt = new Date(clean);
+      if (!isNaN(dt.getTime())) {
+        return dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+      const tPart = timeStr.includes('T') ? timeStr.split('T')[1] : timeStr;
+      const [h, m] = tPart.split(':');
+      let hr = parseInt(h, 10);
+      const ampm = hr >= 12 ? 'PM' : 'AM';
+      hr = hr % 12 || 12;
+      return `${hr}:${m} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  }
+
+  function formatEventDateSpan(startIso, endIso) {
+    const start12 = format12hTime(startIso);
+    const end12 = format12hTime(endIso);
+    if (start12 && end12) return `${start12} – ${end12}`;
+    return start12 || end12 || '';
+  }
+
+  function getRelativeEventBadge(startIso, endIso, now = new Date()) {
+    try {
+      const startClean = (startIso || '').replace('Z', '');
+      const endClean = (endIso || startIso || '').replace('Z', '');
+      const startDt = new Date(startClean);
+      const endDt = new Date(endClean);
+      const nowDateStr = now.toISOString().split('T')[0];
+      const startDateStr = (startIso || '').split('T')[0];
+
+      // Check if event has ended
+      if (endDt < now) {
+        return '<span class="cal-ended-badge">Ended</span>';
+      }
+
+      const start12 = format12hTime(startIso);
+
+      // Event is today
+      if (startDateStr === nowDateStr) {
+        const diffHours = (startDt - now) / (1000 * 60 * 60);
+        if (diffHours > 0 && diffHours <= 3) {
+          const mins = Math.max(1, Math.round((startDt - now) / (1000 * 60)));
+          return mins >= 60
+            ? `<span class="cal-time-badge badge-soon">In ${Math.round(diffHours)}h · ${start12}</span>`
+            : `<span class="cal-time-badge badge-soon">In ${mins}m · ${start12}</span>`;
+        }
+        return `<span class="cal-time-badge badge-today">Today · ${start12}</span>`;
+      }
+
+      // Event is tomorrow
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowDateStr = tomorrow.toISOString().split('T')[0];
+      if (startDateStr === tomorrowDateStr) {
+        return `<span class="cal-time-badge badge-tomorrow">Tomorrow · ${start12}</span>`;
+      }
+
+      // Future date
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const m = monthNames[startDt.getMonth()] || '';
+      const d = startDt.getDate() || '';
+      return `<span class="cal-time-badge badge-future">${m} ${d} · ${start12}</span>`;
+    } catch {
+      return '<span class="cal-time-badge badge-future">Upcoming</span>';
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // SEGMENTED CALENDAR VIEW SWITCHER (Upcoming / Selected Date / Past)
+  // ────────────────────────────────────────────────────────────────────────────
+  function switchCalendarView(viewName) {
+    const tabs = [
+      { name: 'upcoming', btn: calTabUpcoming, pane: calViewUpcoming },
+      { name: 'selected-date', btn: calTabSelectedDate, pane: calViewSelectedDate },
+      { name: 'past', btn: calTabPast, pane: calViewPast },
+    ];
+
+    tabs.forEach(t => {
+      if (t.btn) {
+        if (t.name === viewName) {
+          t.btn.classList.add('active');
+          t.btn.setAttribute('aria-selected', 'true');
+        } else {
+          t.btn.classList.remove('active');
+          t.btn.setAttribute('aria-selected', 'false');
+        }
+      }
+      if (t.pane) {
+        t.pane.style.display = (t.name === viewName) ? 'flex' : 'none';
+      }
+    });
+  }
+
+  if (calTabUpcoming) {
+    calTabUpcoming.addEventListener('click', () => switchCalendarView('upcoming'));
+  }
+  if (calTabSelectedDate) {
+    calTabSelectedDate.addEventListener('click', () => switchCalendarView('selected-date'));
+  }
+  if (calTabPast) {
+    calTabPast.addEventListener('click', () => switchCalendarView('past'));
+  }
 
   function renderCalendarMonth(year, month) {
     if (!calMonthGrid) return;
@@ -1065,7 +1190,12 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedCalendarDate = dateStr;
     const d = new Date(dateStr + 'T00:00:00');
     const formattedDate = d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    const formattedShort = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     if (calSelectedDateHeader) calSelectedDateHeader.textContent = formattedDate;
+    if (calSelectedDateTabLabel) calSelectedDateTabLabel.textContent = `Date: ${formattedShort}`;
+
+    // Automatically switch to the Selected Date view
+    switchCalendarView('selected-date');
 
     if (calendarFilterDate) calendarFilterDate.value = dateStr;
     const startInp = document.getElementById('newEventStart');
@@ -1164,6 +1294,129 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function renderUpcomingEvents(events) {
+    if (!calUpcomingContainer) return;
+    if (calUpcomingBadge) calUpcomingBadge.textContent = events.length;
+
+    if (events.length === 0) {
+      calUpcomingContainer.innerHTML = `
+        <div class="empty-state" style="padding:24px 0;">
+          <p>No upcoming events scheduled.</p>
+          <button type="button" class="secondary-btn btn-sm" onclick="document.getElementById('scheduleEventCard').scrollIntoView({behavior:'smooth'}); document.getElementById('newEventSummary').focus();" style="margin-top:8px;">+ Schedule an Event</button>
+        </div>
+      `;
+      return;
+    }
+
+    const now = new Date();
+    calUpcomingContainer.innerHTML = events.map(e => {
+      const badge = getRelativeEventBadge(e.start_time, e.end_time, now);
+      const timeSpan = formatEventDateSpan(e.start_time, e.end_time);
+      const startDt = new Date((e.start_time || '').replace('Z', ''));
+      const dateFormatted = !isNaN(startDt.getTime())
+        ? startDt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+        : (e.start_time || '').split('T')[0];
+
+      return `
+        <div class="cal-event-card">
+          <div class="cal-event-info">
+            <div class="cal-event-title-row">
+              <strong class="cal-event-title">${escapeHtml(e.summary)}</strong>
+              ${badge}
+            </div>
+            <div class="cal-event-time-row">
+              <span>📅 ${dateFormatted}</span>
+              <span>•</span>
+              <span>⏱️ ${timeSpan}</span>
+              ${e.location ? `<span>•</span><span>📍 ${escapeHtml(e.location)}</span>` : ''}
+            </div>
+          </div>
+          <button type="button" onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:#f87171;padding:4px 8px;">✕ Cancel</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderPastEvents(events) {
+    if (!calPastContainer) return;
+    if (calPastBadge) calPastBadge.textContent = events.length;
+
+    if (events.length === 0) {
+      calPastContainer.innerHTML = `
+        <div class="empty-state" style="padding:24px 0;">
+          <p>No completed or past events recorded in the last 30 days.</p>
+        </div>
+      `;
+      return;
+    }
+
+    calPastContainer.innerHTML = events.map(e => {
+      const timeSpan = formatEventDateSpan(e.start_time, e.end_time);
+      const startDt = new Date((e.start_time || '').replace('Z', ''));
+      const dateFormatted = !isNaN(startDt.getTime())
+        ? startDt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+        : (e.start_time || '').split('T')[0];
+
+      return `
+        <div class="cal-event-card cal-event-ended">
+          <div class="cal-event-info">
+            <div class="cal-event-title-row">
+              <strong class="cal-event-title">${escapeHtml(e.summary)}</strong>
+              <span class="cal-ended-badge">Ended</span>
+            </div>
+            <div class="cal-event-time-row">
+              <span>📅 ${dateFormatted}</span>
+              <span>•</span>
+              <span>⏱️ ${timeSpan}</span>
+              ${e.location ? `<span>•</span><span>📍 ${escapeHtml(e.location)}</span>` : ''}
+            </div>
+          </div>
+          <button type="button" onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:var(--text-muted);padding:4px 8px;" title="Remove past event">✕</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadAllCalendarData() {
+    try {
+      const resp = await fetch('/api/calendar/events');
+      if (resp.ok) {
+        const data = await resp.json();
+        const allEv = data.events || [];
+        const now = new Date();
+
+        let upcoming = [];
+        let past = [];
+
+        if (Array.isArray(data.upcoming) && Array.isArray(data.past)) {
+          upcoming = data.upcoming;
+          past = data.past;
+        } else {
+          allEv.forEach(e => {
+            const endIso = e.end_time || e.start_time;
+            const endDt = endIso ? new Date(endIso.replace('Z', '')) : now;
+            if (endDt >= now) {
+              upcoming.push(e);
+            } else {
+              past.push(e);
+            }
+          });
+          upcoming.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+          past.sort((a, b) => (b.start_time || '').localeCompare(a.start_time || ''));
+        }
+
+        renderUpcomingEvents(upcoming);
+        renderPastEvents(past);
+      }
+    } catch (e) {
+      console.warn('Could not load upcoming/past calendar data:', e);
+    }
+
+    if (selectedCalendarDate) {
+      loadCalendarEvents(selectedCalendarDate);
+    }
+  }
+
   async function loadCalendarEvents(dateStr = '') {
     if (!calendarEventsContainer) return;
     const effectiveDate = dateStr || selectedCalendarDate || '';
@@ -1187,7 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ${escapeHtml(e.summary)}
             </div>
             <div style="font-size:0.74rem;color:var(--text-secondary);margin-top:2px;">
-              ⏱️ ${e.start_time.replace('T', ' ')} → ${e.end_time.replace('T', ' ')} ${e.location ? `• 📍 ${escapeHtml(e.location)}` : ''}
+              ⏱️ ${formatEventDateSpan(e.start_time, e.end_time)} ${e.location ? `• 📍 ${escapeHtml(e.location)}` : ''}
             </div>
           </div>
           <button onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:#f87171;padding:3px 7px;">✕ Cancel</button>
@@ -1203,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE' });
       showToast('Event cancelled', 'info');
-      loadCalendarEvents(selectedCalendarDate);
+      loadAllCalendarData();
       fetchMonthIndicators(calCurrentYear, calCurrentMonth);
     } catch (e) {
       showToast('Error deleting event: ' + e.message, 'error');
@@ -1228,7 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('newEventSummary').value = '';
         document.getElementById('newEventLocation').value = '';
         showToast('Event booked on Google Calendar!', 'success');
-        loadCalendarEvents(selectedCalendarDate);
+        loadAllCalendarData();
         fetchMonthIndicators(calCurrentYear, calCurrentMonth);
       } catch (err) {
         showToast('Failed to schedule event: ' + err.message, 'error');
@@ -1939,7 +2192,7 @@ document.addEventListener('DOMContentLoaded', () => {
           await checkAuth();
           loadTasks();
           loadNotes();
-          loadCalendarEvents();
+          loadAllCalendarData();
           loadDrafts();
         }
       } catch (e) {
@@ -1949,9 +2202,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Preloads
+  switchCalendarView('upcoming');
   renderCalendarMonth(calCurrentYear, calCurrentMonth);
   fetchMonthIndicators(calCurrentYear, calCurrentMonth);
-  selectCalendarDate(selectedCalendarDate);
+  loadAllCalendarData();
   loadWeather();
   loadTimetable();
   loadUserTimetable();
@@ -2034,18 +2288,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const activeRemindersCount = document.getElementById('activeRemindersCount');
 
   const alertedReminderIds = new Set();
+  let reminderAudioCtx = null;
 
-  function playReminderChime() {
+  function initReminderAudio() {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      if (!reminderAudioCtx) {
+        reminderAudioCtx = new AudioCtx();
+      }
+      if (reminderAudioCtx.state === 'suspended') {
+        reminderAudioCtx.resume();
+      }
+    } catch (e) {
+      console.debug('Audio init error:', e);
+    }
+  }
+
+  // Pre-unlock audio on any user gesture anywhere on the page
+  document.addEventListener('click', initReminderAudio, { passive: true });
+  document.addEventListener('keydown', initReminderAudio, { passive: true });
+
+  function playReminderChime() {
+    try {
+      initReminderAudio();
+      const ctx = reminderAudioCtx;
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(880, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -2056,16 +2330,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const drawerNotifPermBar = document.getElementById('drawerNotifPermBar');
+  const drawerNotifIcon = document.getElementById('drawerNotifIcon');
+  const drawerNotifText = document.getElementById('drawerNotifText');
+  const enableDesktopNotifBtn = document.getElementById('enableDesktopNotifBtn');
+
+  function updateNotificationPermUI() {
+    if (!drawerNotifPermBar) return;
+    if (typeof Notification === 'undefined') {
+      drawerNotifPermBar.style.display = 'none';
+      return;
+    }
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      drawerNotifPermBar.className = 'drawer-notification-perm-bar is-granted';
+      if (drawerNotifIcon) drawerNotifIcon.textContent = '✓';
+      if (drawerNotifText) drawerNotifText.textContent = 'Desktop notifications are active with sound & system popups.';
+      if (enableDesktopNotifBtn) {
+        enableDesktopNotifBtn.style.display = 'none';
+      }
+    } else if (perm === 'denied') {
+      drawerNotifPermBar.className = 'drawer-notification-perm-bar is-denied';
+      if (drawerNotifIcon) drawerNotifIcon.textContent = '⚠️';
+      if (drawerNotifText) drawerNotifText.textContent = 'Desktop notifications blocked by browser. Click lock icon in URL bar to allow.';
+      if (enableDesktopNotifBtn) {
+        enableDesktopNotifBtn.style.display = 'none';
+      }
+    } else {
+      drawerNotifPermBar.className = 'drawer-notification-perm-bar';
+      if (drawerNotifIcon) drawerNotifIcon.textContent = '🔔';
+      if (drawerNotifText) drawerNotifText.textContent = 'Enable desktop notifications for alerts when Synaptix is minimized.';
+      if (enableDesktopNotifBtn) {
+        enableDesktopNotifBtn.style.display = 'inline-block';
+        enableDesktopNotifBtn.textContent = 'Enable Alerts';
+      }
+    }
+  }
+
   function requestNotificationPermission() {
+    initReminderAudio();
     if (typeof Notification !== 'undefined') {
       if (Notification.permission === 'default') {
         Notification.requestPermission().then((perm) => {
+          updateNotificationPermUI();
           if (perm === 'granted') {
             showToast('Desktop notifications enabled!', 'success');
+            try {
+              new Notification('⏰ Synaptix Reminders Active', {
+                body: 'You will receive timely alerts for tasks, notes, and events!',
+              });
+            } catch (e) {}
           }
         }).catch(() => {});
+      } else {
+        updateNotificationPermUI();
       }
     }
+  }
+
+  if (enableDesktopNotifBtn) {
+    enableDesktopNotifBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      requestNotificationPermission();
+    });
   }
 
   // Request browser permission proactively on user interaction
@@ -2115,6 +2442,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openRemindersDrawerFunc() {
+    updateNotificationPermUI();
     requestNotificationPermission();
     if (remindersDrawer) remindersDrawer.classList.add('is-open');
     if (remindersOverlay) remindersOverlay.style.display = 'block';
@@ -2250,6 +2578,33 @@ document.addEventListener('DOMContentLoaded', () => {
     toastContainer.appendChild(toast);
   }
 
+  function showInlineChatReminderAlert(reminder) {
+    if (!chatMessages) return;
+    const existing = document.getElementById(`inline-rem-alert-${reminder.id}`);
+    if (existing) return;
+
+    const alertCard = document.createElement('div');
+    alertCard.id = `inline-rem-alert-${reminder.id}`;
+    alertCard.className = 'chat-reminder-alert-card';
+    alertCard.innerHTML = `
+      <div class="chat-rem-header">
+        <div class="chat-rem-icon">⏰</div>
+        <div class="chat-rem-meta">
+          <span class="chat-rem-badge">Smart Reminder Due</span>
+          <span class="chat-rem-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      </div>
+      <div class="chat-rem-title">${escapeHtml(reminder.title)}</div>
+      <div class="chat-rem-actions">
+        <button type="button" class="chat-rem-btn chat-rem-snooze" onclick="snoozeReminderItem('${reminder.id}', 10); document.getElementById('inline-rem-alert-${reminder.id}')?.remove();">+10m Snooze</button>
+        <button type="button" class="chat-rem-btn chat-rem-dismiss" onclick="dismissReminderItem('${reminder.id}'); document.getElementById('inline-rem-alert-${reminder.id}')?.remove();">✓ Dismiss</button>
+      </div>
+    `;
+
+    chatMessages.appendChild(alertCard);
+    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+  }
+
   async function pollDueReminders() {
     try {
       const nowIso = new Date().toISOString();
@@ -2262,6 +2617,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!alertedReminderIds.has(r.id)) {
             alertedReminderIds.add(r.id);
             showReminderToast(r);
+            showInlineChatReminderAlert(r);
           }
         });
       }

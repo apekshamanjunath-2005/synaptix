@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=2.5">
+  <link rel="stylesheet" href="/static/css/styles.css?v=3.0">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -34,14 +34,14 @@
           </div>
         </div>
         <div class="sidebar-header-actions">
-          <button class="icon-btn reminder-bell-btn" id="reminderBellBtn" title="Smart Reminders">
+          <button type="button" class="icon-btn reminder-bell-btn" id="reminderBellBtn" title="Smart Reminders">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
             </svg>
             <span class="reminder-badge" id="reminderBadge" style="display: none;">0</span>
           </button>
-          <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle Sidebar">
+          <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle Sidebar">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="9" y1="3" x2="9" y2="21"></line>
@@ -363,8 +363,40 @@
             </div>
           </div>
 
-          <!-- Selected Date Schedule & Detail View -->
-          <div class="dark-card cal-detail-card">
+          <!-- Segmented Tab Switcher for Calendar Views -->
+          <div class="cal-segmented-bar" role="tablist">
+            <button type="button" class="cal-seg-btn active" id="calTabUpcoming" data-view="upcoming" role="tab" aria-selected="true">
+              <span class="seg-icon">✨</span>
+              <span>Upcoming</span>
+              <span class="cal-badge-pill" id="calUpcomingBadge">0</span>
+            </button>
+            <button type="button" class="cal-seg-btn" id="calTabSelectedDate" data-view="selected-date" role="tab" aria-selected="false">
+              <span class="seg-icon">📅</span>
+              <span id="calSelectedDateTabLabel">Selected Date</span>
+            </button>
+            <button type="button" class="cal-seg-btn" id="calTabPast" data-view="past" role="tab" aria-selected="false">
+              <span class="seg-icon">⌛</span>
+              <span>Past / Over</span>
+              <span class="cal-badge-pill" id="calPastBadge">0</span>
+            </button>
+          </div>
+
+          <!-- VIEW 1: Upcoming Events List (Default) -->
+          <div class="dark-card cal-view-pane" id="calViewUpcoming">
+            <div class="card-header flex-between wrap-header">
+              <div>
+                <h3 class="card-title">Upcoming Commitments</h3>
+                <p class="card-subtitle">Chronological schedule of future meetings & sessions</p>
+              </div>
+              <button type="button" class="primary-btn btn-sm" onclick="document.getElementById('scheduleEventCard').scrollIntoView({behavior:'smooth'}); document.getElementById('newEventSummary').focus();">+ New Event</button>
+            </div>
+            <div id="calUpcomingContainer" class="items-list cal-events-timeline">
+              <p class="empty-state">Loading upcoming events...</p>
+            </div>
+          </div>
+
+          <!-- VIEW 2: Selected Date Schedule & Detail View -->
+          <div class="dark-card cal-detail-card cal-view-pane" id="calViewSelectedDate" style="display: none;">
             <div class="card-header flex-between wrap-header">
               <div>
                 <h3 class="card-title" id="calSelectedDateHeader">Selected Date Schedule</h3>
@@ -400,6 +432,20 @@
                   <p class="empty-state">Loading weekday timetable...</p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- VIEW 3: Past / Over Events List -->
+          <div class="dark-card cal-view-pane" id="calViewPast" style="display: none;">
+            <div class="card-header flex-between wrap-header">
+              <div>
+                <h3 class="card-title">Completed & Past Events</h3>
+                <p class="card-subtitle">Events that have concluded (sorted most recent first)</p>
+              </div>
+              <span class="card-pill">Past 30 Days</span>
+            </div>
+            <div id="calPastContainer" class="items-list cal-events-timeline cal-past-list">
+              <p class="empty-state">No completed or past events recorded in the last 30 days.</p>
             </div>
           </div>
 
@@ -665,6 +711,15 @@
       </button>
     </div>
 
+    <!-- Notification Permission Status Bar inside Drawer -->
+    <div class="drawer-notification-perm-bar" id="drawerNotifPermBar">
+      <div class="drawer-notif-info">
+        <span class="drawer-notif-icon" id="drawerNotifIcon">🔔</span>
+        <span class="drawer-notif-text" id="drawerNotifText">Desktop notifications allow alerts when Synaptix is minimized.</span>
+      </div>
+      <button type="button" class="drawer-notif-btn" id="enableDesktopNotifBtn">Enable</button>
+    </div>
+
     <!-- Quick Add Form inside Drawer -->
     <div class="drawer-quick-card">
       <div class="drawer-quick-header">
@@ -763,6 +818,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=2.5"></script>
+  <script src="/static/js/app.js?v=3.0"></script>
 </body>
 </html>

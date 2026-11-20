@@ -3,6 +3,7 @@ Calendar API Router (Milestone 5 — Calendar MCP Integration)
 REST endpoints exposing Calendar MCP tools for events and conflict detection.
 """
 
+from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -10,6 +11,22 @@ from pydantic import BaseModel, Field
 from app.tools.calendar_mcp import calendar_mcp
 
 router = APIRouter(prefix="/api/calendar", tags=["Calendar MCP Management"])
+
+
+def _is_event_upcoming(event: Dict[str, Any], now_dt: datetime) -> bool:
+    """Determine whether an event is upcoming based on its end_time (or start_time)."""
+    time_str = event.get("end_time") or event.get("start_time") or ""
+    if not time_str:
+        return True
+    try:
+        clean = time_str.replace("Z", "+00:00")
+        ev_dt = datetime.fromisoformat(clean)
+        if ev_dt.tzinfo is None:
+            ev_dt = ev_dt.replace(tzinfo=now_dt.tzinfo)
+        return ev_dt >= now_dt
+    except Exception:
+        local_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        return time_str[:19] >= local_iso
 
 
 class EventCreateRequest(BaseModel):
@@ -37,11 +54,49 @@ class AvailabilityCheckRequest(BaseModel):
 async def list_calendar_events(
     date: Optional[str] = Query(default=None, description="Target date in YYYY-MM-DD format"),
     month: Optional[str] = Query(default=None, description="Target month in YYYY-MM format"),
-    max_results: int = Query(default=50, ge=1, le=100)
+    days_past: Optional[int] = Query(default=None, description="Past window in days (defaults to 30)"),
+    days_future: Optional[int] = Query(default=None, description="Future window in days (defaults to 60)"),
+    all_events: Optional[bool] = Query(default=False, description="Return all upcoming and past events"),
+    max_results: int = Query(default=150, ge=1, le=250)
 ):
-    """Retrieve scheduled calendar events via Calendar MCP."""
-    events = calendar_mcp.list_events(date_str=date, month_str=month, max_results=max_results)
-    return {"count": len(events), "date": date, "month": month, "events": events}
+    """
+    Retrieve scheduled calendar events via Calendar MCP.
+    Classifies events into 'upcoming' (soonest-first) and 'past' (most-recent-first).
+    """
+    events = calendar_mcp.list_events(
+        date_str=date,
+        month_str=month,
+        days_past=days_past,
+        days_future=days_future,
+        all_events=bool(all_events),
+        max_results=max_results
+    )
+
+    now_dt = datetime.now().astimezone()
+    upcoming = []
+    past = []
+
+    for ev in events:
+        if _is_event_upcoming(ev, now_dt):
+            upcoming.append(ev)
+        else:
+            past.append(ev)
+
+    # Upcoming sorted soonest first
+    upcoming.sort(key=lambda x: x.get("start_time", ""))
+    # Past sorted most recent first
+    past.sort(key=lambda x: x.get("start_time", ""), reverse=True)
+
+    return {
+        "count": len(events),
+        "date": date,
+        "month": month,
+        "events": events,
+        "upcoming_count": len(upcoming),
+        "past_count": len(past),
+        "upcoming": upcoming,
+        "past": past,
+    }
 
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)

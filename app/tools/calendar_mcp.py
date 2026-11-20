@@ -132,23 +132,41 @@ class CalendarMCPProvider:
         self,
         date_str: Optional[str] = None,
         month_str: Optional[str] = None,
-        max_results: int = 50,
+        days_past: Optional[int] = None,
+        days_future: Optional[int] = None,
+        all_events: bool = False,
+        max_results: int = 150,
         user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        MCP Tool: List calendar events for a specific date (defaults to today) or month.
+        MCP Tool: List calendar events for a specific date, month, or range (defaults to past 30d + future 60d).
         """
-        filter_prefix = date_str if date_str else (month_str if month_str else date.today().strftime("%Y-%m-%d"))
         uid = user_id or current_user_id.get("default_user")
         usage_tracker.record_tool_call("calendar")
+        today_dt = date.today()
 
         with self._lock:
-            matched = [
+            user_events = [
                 e for e in self._events.values()
-                if e.get("start_time", "").startswith(filter_prefix) and (
-                    uid == "default_user" or not e.get("user_id") or e.get("user_id") == uid
-                )
+                if (uid == "default_user" or not e.get("user_id") or e.get("user_id") == uid)
             ]
+
+            if date_str:
+                matched = [e for e in user_events if e.get("start_time", "").startswith(date_str)]
+            elif month_str:
+                matched = [e for e in user_events if e.get("start_time", "").startswith(month_str)]
+            elif all_events:
+                matched = list(user_events)
+            else:
+                past_n = days_past if days_past is not None else 30
+                future_n = days_future if days_future is not None else 60
+                min_date_str = (today_dt - timedelta(days=past_n)).strftime("%Y-%m-%d")
+                max_date_str = (today_dt + timedelta(days=future_n)).strftime("%Y-%m-%d")
+                matched = [
+                    e for e in user_events
+                    if min_date_str <= (e.get("start_time", "")[:10] or e.get("end_time", "")[:10]) <= max_date_str
+                ]
+
             sorted_events = sorted(matched, key=lambda x: x.get("start_time", ""))
             return sorted_events[:max_results]
 
