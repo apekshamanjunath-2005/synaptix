@@ -71,15 +71,16 @@ class MultiAgentOrchestrator:
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
-        user_email: Optional[str] = None
+        user_email: Optional[str] = None,
+        user_tz: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute multi-agent workflow for user query.
         Delegates from Coordinator to Task, Notes, Calendar, Gmail, or Planner agents.
-        Supports multi-user execution context.
+        Supports multi-user execution context with live local time injection.
         """
         uid = user_id or "default_user"
-        set_user_context(user_id=uid, name=user_name, email=user_email)
+        set_user_context(user_id=uid, name=user_name, email=user_email, timezone=user_tz)
 
         # 1. Enforce ₹0 budget limit
         usage_tracker.enforce_quota_or_raise()
@@ -92,7 +93,7 @@ class MultiAgentOrchestrator:
         if not api_key or not api_key.strip() or self.settings.MOCK_MODE:
             # If no API key configured or in MOCK_MODE, use deterministic agent routing for testing/offline mode
             return await self._deterministic_offline_delegation(
-                user_input, sid, user_id=uid, user_name=user_name, user_email=user_email
+                user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz
             )
 
         # Set environment variable so Google ADK Gemini model authenticates automatically
@@ -101,9 +102,28 @@ class MultiAgentOrchestrator:
 
         # 3. Live Google ADK Execution with Gemini
         usage_tracker.record_agent_run()
-        prompt_text = user_input
+
+        # Compute live current time dynamically on every request turn (never static/at import)
+        now_local = datetime.now().astimezone()
+        if user_tz:
+            try:
+                import zoneinfo
+                now_local = datetime.now(zoneinfo.ZoneInfo(user_tz))
+            except Exception:
+                now_local = datetime.now().astimezone()
+
+        tz_name = now_local.tzname() or "Local Time"
+        time_display = now_local.strftime("%I:%M:%S %p")
+        date_display = now_local.strftime("%Y-%m-%d (%A)")
+        iso_display = now_local.isoformat()
+
+        context_lines = [
+            f"[Live System Context: Current Date: {date_display}, Current Time: {time_display} {tz_name} (ISO: {iso_display})]"
+        ]
         if user_name:
-            prompt_text = f"[Current User: {user_name} ({user_email or 'logged-in'})]\n{user_input}"
+            context_lines.append(f"[Current User: {user_name} ({user_email or 'logged-in'})]")
+
+        prompt_text = "\n".join(context_lines) + f"\n\n{user_input}"
 
         content = genai_types.Content(
             role="user",
@@ -170,7 +190,7 @@ class MultiAgentOrchestrator:
 
                 logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
                 fallback = await self._deterministic_offline_delegation(
-                    user_input, sid, user_id=uid, user_name=user_name, user_email=user_email
+                    user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz
                 )
                 if "402" in err_str or "prepayment" in err_str.lower():
                     banner = (
@@ -190,7 +210,19 @@ class MultiAgentOrchestrator:
                 fallback["orchestration"]["live_adk_error"] = str(exc)
                 return fallback
 
-    def _parse_natural_reminder_time(self, text: str) -> str:
+    def _parse_natural_reminder_delay(self, text: str) -> Optional[int]:
+        """Parse relative minute delay from natural phrases like 'in 1 minute' or 'in 30 mins'."""
+        import re
+        t_lower = text.lower()
+        m_min = re.search(r"\bin\s+(\d+)\s*(?:minutes|minute|mins|min)\b", t_lower)
+        if m_min:
+            return int(m_min.group(1))
+        m_hr = re.search(r"\bin\s+(\d+)\s*(?:hours|hour|hrs|hr)\b", t_lower)
+        if m_hr:
+            return int(m_hr.group(1)) * 60
+        return None
+
+    def _parse_natural_reminder_time(self, text: str, user_tz: Optional[str] = None) -> str:
         """Parse natural language phrases into an ISO 8601 reminder timestamp."""
         import re
         from datetime import datetime, date, timedelta, timezone
@@ -198,16 +230,16 @@ class MultiAgentOrchestrator:
         t_lower = text.lower()
 
         # Match "in X minutes" / "in X mins" / "in X min"
-        m_min = re.search(r"in\s+(\d+)\s*(?:minutes|minute|mins|min)", t_lower)
+        m_min = re.search(r"\bin\s+(\d+)\s*(?:minutes|minute|mins|min)\b", t_lower)
         if m_min:
             mins = int(m_min.group(1))
-            return (now + timedelta(minutes=mins)).isoformat()
+            return (now + timedelta(minutes=mins)).replace(microsecond=0).isoformat()
 
         # Match "in X hours" / "in X hr" / "in X hrs"
-        m_hr = re.search(r"in\s+(\d+)\s*(?:hours|hour|hrs|hr)", t_lower)
+        m_hr = re.search(r"\bin\s+(\d+)\s*(?:hours|hour|hrs|hr)\b", t_lower)
         if m_hr:
             hrs = int(m_hr.group(1))
-            return (now + timedelta(hours=hrs)).isoformat()
+            return (now + timedelta(hours=hrs)).replace(microsecond=0).isoformat()
 
         # Match "tomorrow at 6 pm", "tomorrow at 18:00", "tomorrow at 9 am"
         if "tomorrow" in t_lower:
@@ -221,11 +253,11 @@ class MultiAgentOrchestrator:
                     hr += 12
                 elif meridiem == "am" and hr == 12:
                     hr = 0
-                return f"{tomorrow_date}T{hr:02d}:{mn:02d}:00Z"
-            return f"{tomorrow_date}T09:00:00Z"
+                return f"{tomorrow_date}T{hr:02d}:{mn:02d}:00"
+            return f"{tomorrow_date}T09:00:00"
 
         # Default 1 hour from now
-        return (now + timedelta(hours=1)).isoformat()
+        return (now + timedelta(hours=1)).replace(microsecond=0).isoformat()
 
     async def _deterministic_offline_delegation(
         self,
@@ -233,7 +265,8 @@ class MultiAgentOrchestrator:
         session_id: str,
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
-        user_email: Optional[str] = None
+        user_email: Optional[str] = None,
+        user_tz: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Deterministic intent router for testing and offline execution without API keys.
@@ -386,17 +419,32 @@ class MultiAgentOrchestrator:
                 tools_called.append("note_save")
                 n = raw_res["note"]
                 if "remind" in lower:
-                    remind_iso = self._parse_natural_reminder_time(user_input)
-                    r_res = json.loads(set_reminder(title=f"Note: {n['title']}", remind_at=remind_iso, source_type="note", source_id=n["id"]))
+                    delay = self._parse_natural_reminder_delay(user_input)
+                    if delay is not None:
+                        r_res = json.loads(set_reminder(
+                            title=f"Note: {n['title']}",
+                            delay_minutes=delay,
+                            source_type="note",
+                            source_id=n["id"]
+                        ))
+                    else:
+                        remind_iso = self._parse_natural_reminder_time(user_input, user_tz=user_tz)
+                        r_res = json.loads(set_reminder(
+                            title=f"Note: {n['title']}",
+                            remind_at_iso=remind_iso,
+                            source_type="note",
+                            source_id=n["id"]
+                        ))
                     tools_called.append("set_reminder")
                     r = r_res["reminder"]
+                    formatted_time = r_res.get("formatted_time", r.get("remind_at", ""))
                     reply = (
                         f"📝 **Note Saved & Reminder Attached (NotesAgent):**\n"
                         f"- **Note ID:** `{n['id']}`\n"
                         f"- **Title:** {n['title']}\n"
                         f"- **Content:** {n['content']}\n"
                         f"- **Reminder ID:** `{r['id']}`\n"
-                        f"- **Alert Time:** `{r['remind_at']}`"
+                        f"- **Alert Time:** `{formatted_time}` (`{r['remind_at']}`)"
                     )
                 else:
                     reply = f"📝 **Note Saved by NotesAgent:**\n- **ID:** `{n['id']}`\n- **Title:** {n['title']}\n- **Content:** {n['content']}"
@@ -428,20 +476,36 @@ class MultiAgentOrchestrator:
             elif "remind" in lower:
                 title = user_input.replace("set reminder for", "").replace("set reminder to", "").replace("set reminder", "").replace("remind me to", "").replace("remind me", "").strip(": ")
                 import re
-                clean_title = re.sub(r"\s+in\s+\d+\s*(?:minutes|mins|hours|hrs|days)", "", title, flags=re.IGNORECASE)
+                clean_title = re.sub(r"\s+in\s+\d+\s*(?:minutes|minute|mins|min|hours|hour|hrs|hr|days|day)", "", title, flags=re.IGNORECASE)
                 clean_title = re.sub(r"\s+tomorrow\s*(?:at\s*\d+(?::\d+)?\s*(?:am|pm)?)?", "", clean_title, flags=re.IGNORECASE).strip()
-                remind_iso = self._parse_natural_reminder_time(user_input)
                 raw_t = json.loads(task_create(title=clean_title or title or "New Task"))
                 tools_called.append("task_create")
                 t = raw_t["task"]
-                raw_r = json.loads(set_reminder(title=t["title"], remind_at=remind_iso, source_type="task", source_id=t["id"]))
+
+                delay = self._parse_natural_reminder_delay(user_input)
+                if delay is not None:
+                    raw_r = json.loads(set_reminder(
+                        title=t["title"],
+                        delay_minutes=delay,
+                        source_type="task",
+                        source_id=t["id"]
+                    ))
+                else:
+                    remind_iso = self._parse_natural_reminder_time(user_input, user_tz=user_tz)
+                    raw_r = json.loads(set_reminder(
+                        title=t["title"],
+                        remind_at_iso=remind_iso,
+                        source_type="task",
+                        source_id=t["id"]
+                    ))
                 tools_called.append("set_reminder")
                 r = raw_r["reminder"]
+                formatted_time = raw_r.get("formatted_time", r.get("remind_at", ""))
                 reply = (
                     f"⏰ **Smart Reminder Created (TaskAgent):**\n"
                     f"- **Reminder ID:** `{r['id']}`\n"
                     f"- **Title:** {r['title']}\n"
-                    f"- **Alert Time:** `{r['remind_at']}`\n"
+                    f"- **Alert Time:** `{formatted_time}` (`{r['remind_at']}`)\n"
                     f"- **Linked Task:** `{t['id']}`\n"
                     f"- **Status:** {r['status'].capitalize()}"
                 )

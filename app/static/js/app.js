@@ -371,6 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const loadingElem = appendLoadingMessage();
 
+      const userTz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : 'Asia/Kolkata';
+
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -379,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             message: query,
             session_id: currentSessionId,
             conversation_history: conversationHistory.slice(-6),
+            timezone: userTz,
           }),
         });
 
@@ -1506,7 +1511,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function pollDueReminders() {
     try {
-      const res = await fetch('/api/reminders/due');
+      const nowIso = new Date().toISOString();
+      const res = await fetch(`/api/reminders/due?now=${encodeURIComponent(nowIso)}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && data.due_reminders) {

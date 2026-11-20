@@ -24,6 +24,7 @@ from app.database.firestore import firestore_service
 from app.tools.calendar_mcp import calendar_mcp
 from app.agents.tools import set_reminder, list_reminders, dismiss_reminder, snooze_reminder
 from app.agents.orchestrator import orchestrator
+from app.agents.context import set_user_context
 from app.api.auth import create_session_token
 
 
@@ -248,6 +249,21 @@ async def test_agent_reminders_natural_language():
     assert "set_reminder" in res2["orchestration"]["tools_executed"]
     print(f"  ✅ NotesAgent saved note and scheduled linked reminder: {res2['orchestration']['tools_executed']}")
 
+    # Test 3: Relative 1-minute delay reminder
+    print("\n[Test 3] Testing 'Remind me to test notifications in 1 minute'...")
+    now_before = datetime.now(timezone.utc)
+    res3 = await orchestrator._deterministic_offline_delegation(
+        user_input="Remind me to test notifications in 1 minute",
+        session_id="test-session-3",
+        user_id=test_uid,
+        user_name="Apeksha"
+    )
+    assert res3["orchestration"]["activated_agent"] == "TaskAgent"
+    assert "set_reminder" in res3["orchestration"]["tools_executed"]
+    assert "notifications" in res3["reply"].lower()
+    assert "Alert Time:" in res3["reply"]
+    print(f"  ✅ TaskAgent parsed 1-min relative reminder: {res3['orchestration']['tools_executed']}")
+
     # Clean up test user's reminders
     rems = firestore_service.list_reminders(user_id=test_uid)
     for r in rems:
@@ -255,9 +271,60 @@ async def test_agent_reminders_natural_language():
     print("  ✅ Cleaned up agent test reminders")
 
 
+def test_reminder_relative_delay_minutes():
+    print("\n" + "=" * 65)
+    print(" ⏱️ RUNNING RELATIVE DELAY REMINDER TESTS (delay_minutes=1)")
+    print("=" * 65)
+
+    test_uid = "delay_test_user_505"
+    set_user_context(user_id=test_uid)
+    now_before = datetime.now(timezone.utc)
+
+    # 1. Call set_reminder tool directly with delay_minutes=1
+    res_raw = set_reminder(
+        title="Test notifications in 1 minute",
+        delay_minutes=1,
+        source_type="task"
+    )
+    res = json.loads(res_raw)
+    assert res["success"] is True, f"Expected success True: {res}"
+    assert "message" in res
+    assert "Reminder set for" in res["message"]
+    print(f"  Tool response message: {res['message']}")
+
+    rem = res["reminder"]
+    rem_id = rem["id"]
+    remind_at_iso = rem["remind_at"]
+
+    # Parse remind_at_iso
+    clean_iso = remind_at_iso.replace("Z", "+00:00")
+    remind_dt = datetime.fromisoformat(clean_iso)
+    if remind_dt.tzinfo is None:
+        remind_dt = remind_dt.replace(tzinfo=timezone.utc)
+    remind_dt = remind_dt.astimezone(timezone.utc)
+
+    diff_seconds = (remind_dt - now_before).total_seconds()
+    print(f"  Calculated delay: {diff_seconds:.2f} seconds (expected ~60s)")
+    assert 50 <= diff_seconds <= 70, f"Expected ~60s delay, got {diff_seconds}s"
+    print("  ✅ Verified delay_minutes=1 sets remind_at to ~60 seconds from current time")
+
+    # 2. Verify get_due_reminders handles it correctly (not due now, but due 2 mins later)
+    due_now = firestore_service.get_due_reminders(user_id=test_uid, now_iso=now_before.isoformat())
+    assert not any(r["id"] == rem_id for r in due_now), "1-minute reminder should NOT be due right now"
+
+    future_threshold = (now_before + timedelta(minutes=2)).isoformat()
+    due_future = firestore_service.get_due_reminders(user_id=test_uid, now_iso=future_threshold)
+    assert any(r["id"] == rem_id for r in due_future), "1-minute reminder SHOULD be due 2 minutes in future"
+    print("  ✅ Verified time comparison in get_due_reminders is timezone-consistent")
+
+    firestore_service.delete_reminder(user_id=test_uid, reminder_id=rem_id)
+    print("  ✅ Cleaned up delay unit test reminder")
+
+
 if __name__ == "__main__":
     import asyncio
     test_firestore_reminders_unit_and_isolation()
+    test_reminder_relative_delay_minutes()
     test_calendar_popup_reminders()
     test_reminders_rest_api()
     asyncio.run(test_agent_reminders_natural_language())

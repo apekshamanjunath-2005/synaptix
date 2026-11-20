@@ -522,16 +522,27 @@ class FirestoreService:
         """
         Create a new reminder in Firestore for the given user.
         status defaults to 'pending'.
+        Stored remind_at timestamp is normalized to consistent UTC ISO-8601 string.
         """
         effective_uid = user_id or "default_user"
         reminder_id = f"reminder-{uuid.uuid4().hex[:6]}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
+        normalized_remind_at = remind_at_iso
+        try:
+            clean = remind_at_iso.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(clean)
+            if dt.tzinfo is None:
+                dt = dt.astimezone()
+            normalized_remind_at = dt.astimezone(timezone.utc).isoformat()
+        except Exception:
+            normalized_remind_at = remind_at_iso
+
         doc_payload = {
             "id": reminder_id,
             "user_id": effective_uid,
             "title": title,
-            "remind_at": remind_at_iso,
+            "remind_at": normalized_remind_at,
             "source_type": source_type or "custom",
             "source_id": source_id,
             "status": "pending",
@@ -541,7 +552,7 @@ class FirestoreService:
 
         self.client.collection("reminders").document(reminder_id).set(doc_payload)
         usage_tracker.record_tool_call("firestore")
-        logger.info("Created reminder %s ('%s') for user %s at %s", reminder_id, title, effective_uid, remind_at_iso)
+        logger.info("Created reminder %s ('%s') for user %s at %s", reminder_id, title, effective_uid, normalized_remind_at)
         return doc_payload
 
     def list_reminders(
@@ -573,6 +584,7 @@ class FirestoreService:
     ) -> List[Dict[str, Any]]:
         """
         Return all 'pending' and 'snoozed' reminders for user where remind_at <= now_iso.
+        Normalizes both now_iso and remind_at to UTC datetime for accurate comparison.
         """
         effective_uid = user_id or "default_user"
         target_now = now_iso or datetime.now(timezone.utc).isoformat()
@@ -582,8 +594,8 @@ class FirestoreService:
                 clean = iso_str.replace("Z", "+00:00")
                 dt = datetime.fromisoformat(clean)
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                return dt
+                    dt = dt.astimezone()
+                return dt.astimezone(timezone.utc)
             except Exception:
                 return datetime.max.replace(tzinfo=timezone.utc)
 
@@ -628,7 +640,14 @@ class FirestoreService:
 
         if status == "snoozed":
             if remind_at_iso:
-                data["remind_at"] = remind_at_iso
+                try:
+                    clean = remind_at_iso.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(clean)
+                    if dt.tzinfo is None:
+                        dt = dt.astimezone()
+                    data["remind_at"] = dt.astimezone(timezone.utc).isoformat()
+                except Exception:
+                    data["remind_at"] = remind_at_iso
             elif snooze_minutes:
                 data["remind_at"] = (now + timedelta(minutes=snooze_minutes)).isoformat()
             else:

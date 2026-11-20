@@ -28,6 +28,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Prior conversation turns for multi-turn context"
     )
+    timezone: Optional[str] = Field(
+        default=None,
+        description="User browser IANA timezone (e.g. 'Asia/Kolkata', 'America/New_York')"
+    )
 
 
 class ChatResponse(BaseModel):
@@ -53,14 +57,15 @@ async def chat_endpoint(
     uname = current_user.get("name")
     uemail = current_user.get("email")
 
-    set_user_context(user_id=uid, name=uname, email=uemail)
+    set_user_context(user_id=uid, name=uname, email=uemail, timezone=request.timezone)
 
     result = await orchestrator.run_workflow(
         user_input=request.message,
         session_id=request.session_id,
         user_id=uid,
         user_name=uname,
-        user_email=uemail
+        user_email=uemail,
+        user_tz=request.timezone,
     )
 
     return ChatResponse(

@@ -31,7 +31,7 @@ ROUTING RULES (DELEGATION PROTOCOL):
 - NOTES REQUESTS: ("save note", "remember this", "search notes about X", "show my notes", "save a note and remind me")
   -> Transfer control to NotesAgent (can capture notes and set reminders).
 - TASK & REMINDER REQUESTS: ("add task", "remind me to", "my tasks", "set reminder", "my reminders", "dismiss reminder")
-  -> Transfer control to TaskAgent (manages tasks, deadlines, and smart reminders).
+  -> Transfer control to TaskAgent (manages tasks, deadlines, and smart reminders; handles relative delays using delay_minutes).
 - CALENDAR REQUESTS: ("schedule meeting", "what's on my calendar", "check if I'm free at 3", "book event")
   -> Transfer control to CalendarAgent.
 - PLANNING REQUESTS: ("plan my day", "organize tomorrow", "daily overview", "schedule for today")

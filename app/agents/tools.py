@@ -6,11 +6,11 @@ Connects TaskAgent and NotesAgent directly to Firebase Firestore.
 import json
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 from app.database.firestore import firestore_service
 from app.tools.gmail_service import gmail_service
-from app.agents.context import current_user_id, current_user_name
+from app.agents.context import current_user_id, current_user_name, current_user_timezone
 
 logger = logging.getLogger("synaptix.agents.tools")
 
@@ -470,32 +470,88 @@ def email_draft_list() -> str:
 
 def set_reminder(
     title: str,
-    remind_at: str,
+    remind_at_iso: Optional[str] = None,
+    delay_minutes: Optional[Union[int, float]] = None,
     source_type: str = "custom",
-    source_id: Optional[str] = None
+    source_id: Optional[str] = None,
+    remind_at: Optional[str] = None
 ) -> str:
     """
     Schedule a smart reminder for the user.
 
     Args:
-        title: What the reminder is about (e.g. "Review DBMS notes", "Call Disha").
-        remind_at: Date and time to trigger reminder (ISO 8601 string, e.g. '2026-11-20T18:00:00' or relative calculated timestamp).
+        title: What the reminder is about (e.g. "Review DBMS notes", "Call Disha", "Test notifications").
+        remind_at_iso: Absolute target date/time to trigger reminder (ISO 8601 string, e.g. '2026-11-20T18:00:00+00:00').
+        delay_minutes: Relative delay in minutes from right now (e.g. 1 for 'in 1 minute', 30 for 'in 30 mins'). Strongly preferred for relative requests.
         source_type: Type of source item ('note', 'task', 'event', 'custom'). Default is 'custom'.
         source_id: Optional ID of the linked note, task, or event.
+        remind_at: Backwards-compatible alias for remind_at_iso.
 
     Returns:
-        JSON string confirming reminder creation with ID and trigger time.
+        JSON string confirming reminder creation with ID, exact trigger time, and formatted local time message.
     """
     try:
         uid = current_user_id.get("default_user")
+
+        target_iso: str = ""
+        target_dt: Optional[datetime] = None
+
+        if delay_minutes is not None:
+            now_utc = datetime.now(timezone.utc)
+            target_dt = now_utc + timedelta(minutes=float(delay_minutes))
+            target_iso = target_dt.replace(microsecond=0).isoformat()
+        else:
+            raw_target = remind_at_iso or remind_at
+            if raw_target:
+                target_iso = raw_target
+                try:
+                    clean = raw_target.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(clean)
+                    if dt.tzinfo is None:
+                        dt = dt.astimezone()
+                    target_dt = dt
+                except Exception:
+                    target_dt = datetime.now().astimezone()
+            else:
+                now_utc = datetime.now(timezone.utc)
+                target_dt = now_utc + timedelta(minutes=10)
+                target_iso = target_dt.replace(microsecond=0).isoformat()
+
+        # Format local time for user-facing echo
+        try:
+            if target_dt is not None:
+                user_tz = current_user_timezone.get(None)
+                if user_tz:
+                    try:
+                        import zoneinfo
+                        local_dt = target_dt.astimezone(zoneinfo.ZoneInfo(user_tz))
+                    except Exception:
+                        local_dt = target_dt.astimezone()
+                else:
+                    local_dt = target_dt.astimezone()
+                local_time_str = local_dt.strftime("%I:%M %p")
+            else:
+                local_time_str = target_iso
+        except Exception:
+            local_time_str = target_iso
+
         reminder = firestore_service.create_reminder(
             user_id=uid,
             title=title,
-            remind_at_iso=remind_at,
+            remind_at_iso=target_iso,
             source_type=source_type,
             source_id=source_id,
         )
-        return json.dumps({"success": True, "action": "reminder_created", "reminder": reminder})
+
+        display_msg = f"Reminder set for {local_time_str}"
+        return json.dumps({
+            "success": True,
+            "action": "reminder_created",
+            "reminder": reminder,
+            "formatted_time": local_time_str,
+            "message": display_msg,
+            "display": f"⏰ {display_msg}: '{title}'"
+        })
     except Exception as exc:
         logger.error("Error creating reminder: %s", exc)
         return json.dumps({"success": False, "error": str(exc)})
