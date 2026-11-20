@@ -417,19 +417,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!response.ok) {
-          let errMsg = `Status ${response.status}`;
+          let errMsg = 'An unexpected error occurred. Please try again.';
           try {
             const rawText = await response.text();
             try {
               const errJson = JSON.parse(rawText);
-              errMsg = (errJson.detail && (errJson.detail.message || errJson.detail)) || errJson.message || JSON.stringify(errJson);
+              errMsg = (errJson.detail && (errJson.detail.message || errJson.detail)) || errJson.message || errMsg;
             } catch {
-              errMsg = rawText.slice(0, 200);
+              if (rawText && !rawText.includes('Traceback') && !rawText.includes('File ') && !rawText.includes('<html')) {
+                errMsg = rawText.slice(0, 150);
+              }
             }
           } catch {}
+
+          if (typeof errMsg === 'string' && (errMsg.includes('Traceback') || errMsg.includes('SyntaxError') || errMsg.includes('UnboundLocalError') || errMsg.includes('Internal Server Error'))) {
+            errMsg = 'An internal error occurred while processing your request. Please try again.';
+          }
+
           appendMessage(
-            'Synaptix Error',
-            `⚠️ Error (${response.status}): ${errMsg}`,
+            'Synaptix AI',
+            `⚠️ ${errMsg}`,
             false
           );
           return;
@@ -466,7 +473,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       } catch (err) {
         if (loadingElem) loadingElem.remove();
-        appendMessage('Synaptix Error', `⚠️ Could not reach backend: ${err.message}`, false);
+        let displayErr = err.message || 'Could not reach server';
+        if (displayErr.includes('Traceback') || displayErr.includes('Unexpected token') || displayErr.includes('JSON')) {
+          displayErr = 'Unable to complete request right now. Please try again.';
+        }
+        appendMessage('Synaptix AI', `⚠️ ${displayErr}`, false);
       } finally {
         if (auraGlowWrapper) auraGlowWrapper.classList.remove('is-thinking');
         userInput.disabled = false;

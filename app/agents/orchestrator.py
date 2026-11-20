@@ -4,6 +4,7 @@ Runs Google ADK multi-agent workflows using InMemoryRunner.
 Tracks agent transfers, tool calls, and strictly enforces ₹0 budget safeguards.
 """
 
+import os
 import json
 import logging
 import uuid
@@ -101,7 +102,6 @@ class MultiAgentOrchestrator:
         await self._ensure_session(sid, user_id=uid)
 
         # Set environment variable so Google ADK Gemini model authenticates automatically
-        import os
         os.environ["GEMINI_API_KEY"] = api_key.strip()
 
         # 3. Live Google ADK Execution with Gemini
