@@ -390,20 +390,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (loadingElem) loadingElem.remove();
 
         if (response.status === 429) {
-          const errData = await response.json();
+          let limitMsg = 'Operation paused to guarantee zero costs.';
+          try {
+            const errData = await response.json();
+            limitMsg = (errData.detail && errData.detail.message) || errData.detail || limitMsg;
+          } catch {}
           appendMessage(
             'Synaptix Guard',
-            `⛔ **Daily Free-Tier Quota Limit Reached (HTTP 429)**\n\n${(errData.detail && errData.detail.message) || 'Operation paused to guarantee zero costs.'}`,
+            `⛔ **Daily Free-Tier Quota Limit Reached (HTTP 429)**\n\n${limitMsg}`,
             false
           );
           return;
         }
 
         if (!response.ok) {
-          const errData = await response.json();
+          let errMsg = `Status ${response.status}`;
+          try {
+            const rawText = await response.text();
+            try {
+              const errJson = JSON.parse(rawText);
+              errMsg = (errJson.detail && (errJson.detail.message || errJson.detail)) || errJson.message || JSON.stringify(errJson);
+            } catch {
+              errMsg = rawText.slice(0, 200);
+            }
+          } catch {}
           appendMessage(
             'Synaptix Error',
-            `⚠️ Error (${response.status}): ${JSON.stringify(errData.detail || errData)}`,
+            `⚠️ Error (${response.status}): ${errMsg}`,
             false
           );
           return;
@@ -427,6 +440,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetAgent === 'CalendarAgent' || query.toLowerCase().includes('calendar') || query.toLowerCase().includes('meeting')) loadCalendarEvents();
         if (targetAgent === 'GmailAgent' || query.toLowerCase().includes('email') || query.toLowerCase().includes('draft')) loadDrafts();
         if (targetAgent === 'SmartDayPlannerAgent' || query.toLowerCase().includes('plan')) loadTimetable();
+        if (query.toLowerCase().includes('remind') || (orch.tools_executed && orch.tools_executed.includes('set_reminder'))) {
+          if (typeof loadReminders === 'function') loadReminders();
+          if (typeof pollDueReminders === 'function') pollDueReminders();
+        }
 
       } catch (err) {
         if (loadingElem) loadingElem.remove();
