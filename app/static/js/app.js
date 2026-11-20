@@ -179,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
   navItems.forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetTab = btn.getAttribute('data-tab');
+      if (!targetTab) return;
 
       navItems.forEach((item) => item.classList.remove('active'));
       tabPanes.forEach((pane) => pane.classList.remove('active'));
@@ -209,6 +210,52 @@ document.addEventListener('DOMContentLoaded', () => {
         loadWeather();
         loadTimetable();
         loadUserTimetable();
+      }
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // HOW IT WORKS & SPECIALIST AGENT DIRECTORY REDIRECTS
+  // ══════════════════════════════════════════════════════════════════════════
+  const howItWorksNavBtn = document.getElementById('howItWorksNavBtn');
+  if (howItWorksNavBtn) {
+    howItWorksNavBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 1. Switch to AI Assistant tab if not already active
+      const chatBtn = document.querySelector('.nav-item[data-tab="chat"]');
+      if (chatBtn && !chatBtn.classList.contains('active')) {
+        chatBtn.click();
+      }
+      // 2. Ensure howItWorksSection is visible & smoothly scroll down
+      const sec = document.getElementById('howItWorksSection');
+      if (sec) {
+        sec.style.display = '';
+        setTimeout(() => {
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 70);
+      }
+    });
+  }
+
+  // Interactive Specialist Agent Directory Cards
+  document.querySelectorAll('.agent-redirect-card').forEach((card) => {
+    const handleRedirect = (e) => {
+      e.preventDefault();
+      const tab = card.getAttribute('data-redirect-tab');
+      if (tab) {
+        const targetBtn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+        if (targetBtn) {
+          targetBtn.click();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const mainContent = document.querySelector('.main-content');
+          if (mainContent) mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+    card.addEventListener('click', handleRedirect);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        handleRedirect(e);
       }
     });
   });
@@ -355,12 +402,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateChatDockState() {
     if (!chatContainer) return;
     const hasMessages = chatMessages && chatMessages.children.length > 0;
+    const howItWorksSection = document.getElementById('howItWorksSection');
     if (hasMessages) {
       chatContainer.classList.remove('is-hero');
       chatContainer.classList.add('is-docked');
+      if (howItWorksSection) howItWorksSection.style.display = 'none';
     } else {
       chatContainer.classList.add('is-hero');
       chatContainer.classList.remove('is-docked');
+      if (howItWorksSection) howItWorksSection.style.display = '';
     }
   }
 

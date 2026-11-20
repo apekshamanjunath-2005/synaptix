@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=6.1">
+  <link rel="stylesheet" href="/static/css/styles.css?v=6.2">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -99,6 +99,9 @@
           </button>
           <button class="nav-item nav-btn" data-tab="planner">
             <span class="nav-label">Smart Planner</span>
+          </button>
+          <button class="nav-item nav-btn" id="howItWorksNavBtn" data-action="how-it-works">
+            <span class="nav-label">How it works</span>
           </button>
         </nav>
 
@@ -282,6 +285,129 @@
 
             </div>
           </div>
+
+          <!-- HOW SYNAPTIX WORKS SECTION (3-Step Overview & Specialist Agent Redirect Cards) -->
+          <section class="how-it-works-section" id="howItWorksSection">
+            <div class="how-it-works-header">
+              <div class="how-it-works-pill">
+                <span class="sparkle-gold">✦</span>
+                <span>HOW SYNAPTIX WORKS</span>
+              </div>
+              <h2 class="how-it-works-title">Coordinated Intelligence, Executed Seamlessly.</h2>
+              <p class="how-it-works-subtitle">
+                Synaptix unites specialized AI agents under an autonomous coordinator to manage your day, automate routine tasks, and take real-world action.
+              </p>
+            </div>
+
+            <!-- 3-Step Editorial Overview -->
+            <div class="how-steps-grid">
+              <div class="how-step-card">
+                <div class="how-step-num">01 · Ask Naturally</div>
+                <div class="how-step-content">
+                  <h3 class="how-step-title">Ask Naturally</h3>
+                  <p class="how-step-desc">Type a goal, reminder, or request in plain English.</p>
+                </div>
+              </div>
+              <div class="how-step-card">
+                <div class="how-step-num">02 · Smart Routing</div>
+                <div class="how-step-content">
+                  <h3 class="how-step-title">Smart Multi-Agent Routing</h3>
+                  <p class="how-step-desc">The Coordinator routes your request to the right specialist agent.</p>
+                </div>
+              </div>
+              <div class="how-step-card">
+                <div class="how-step-num">03 · Real-World Action</div>
+                <div class="how-step-content">
+                  <h3 class="how-step-title">Real-World Action</h3>
+                  <p class="how-step-desc">Saves to Firestore, updates Google Calendar, or drafts emails with your approval.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Specialist Agent Directory Section Header -->
+            <div class="agent-directory-header">
+              <span class="agent-dir-label">SPECIALIST AGENT DIRECTORY</span>
+              <span class="agent-dir-hint">Click any agent box to open its dedicated workspace</span>
+            </div>
+
+            <!-- Interactive Specialist Agent Redirect Cards -->
+            <div class="agent-directory-grid">
+              <!-- Tasks Agent Box -->
+              <div class="agent-redirect-card" data-redirect-tab="tasks" role="button" tabindex="0" title="Open Tasks View">
+                <div class="agent-card-header">
+                  <div class="agent-card-icon agent-icon-tasks">✅</div>
+                  <div class="agent-card-title-group">
+                    <h4 class="agent-card-title">Tasks Agent</h4>
+                    <span class="agent-card-status">Active Specialist</span>
+                  </div>
+                </div>
+                <p class="agent-card-desc">Create, prioritize, and track tasks & due reminders.</p>
+                <div class="agent-card-footer">
+                  <span class="agent-card-cta">Open Tasks <span class="cta-arrow">→</span></span>
+                </div>
+              </div>
+
+              <!-- Notes Agent Box -->
+              <div class="agent-redirect-card" data-redirect-tab="notes" role="button" tabindex="0" title="Open Notes View">
+                <div class="agent-card-header">
+                  <div class="agent-card-icon agent-icon-notes">📝</div>
+                  <div class="agent-card-title-group">
+                    <h4 class="agent-card-title">Notes Agent</h4>
+                    <span class="agent-card-status">Active Specialist</span>
+                  </div>
+                </div>
+                <p class="agent-card-desc">Capture meeting notes, ideas, and searchable tags.</p>
+                <div class="agent-card-footer">
+                  <span class="agent-card-cta">Open Notes <span class="cta-arrow">→</span></span>
+                </div>
+              </div>
+
+              <!-- Calendar Agent Box -->
+              <div class="agent-redirect-card" data-redirect-tab="calendar" role="button" tabindex="0" title="Open Calendar View">
+                <div class="agent-card-header">
+                  <div class="agent-card-icon agent-icon-calendar">📅</div>
+                  <div class="agent-card-title-group">
+                    <h4 class="agent-card-title">Calendar Agent</h4>
+                    <span class="agent-card-status">Active Specialist</span>
+                  </div>
+                </div>
+                <p class="agent-card-desc">Check upcoming/past events and schedule via Google Calendar MCP.</p>
+                <div class="agent-card-footer">
+                  <span class="agent-card-cta">Open Calendar <span class="cta-arrow">→</span></span>
+                </div>
+              </div>
+
+              <!-- Gmail Agent Box -->
+              <div class="agent-redirect-card" data-redirect-tab="gmail" role="button" tabindex="0" title="Open Gmail View">
+                <div class="agent-card-header">
+                  <div class="agent-card-icon agent-icon-gmail">✉️</div>
+                  <div class="agent-card-title-group">
+                    <h4 class="agent-card-title">Gmail Agent</h4>
+                    <span class="agent-card-status">Active Specialist</span>
+                  </div>
+                </div>
+                <p class="agent-card-desc">Draft and review emails with Human-in-the-Loop approval.</p>
+                <div class="agent-card-footer">
+                  <span class="agent-card-cta">Open Gmail <span class="cta-arrow">→</span></span>
+                </div>
+              </div>
+
+              <!-- Smart Planner Box -->
+              <div class="agent-redirect-card" data-redirect-tab="planner" role="button" tabindex="0" title="Open Smart Planner View">
+                <div class="agent-card-header">
+                  <div class="agent-card-icon agent-icon-planner">🧭</div>
+                  <div class="agent-card-title-group">
+                    <h4 class="agent-card-title">Smart Planner</h4>
+                    <span class="agent-card-status">Active Specialist</span>
+                  </div>
+                </div>
+                <p class="agent-card-desc">Build your weekly timetable and optimize free time slots.</p>
+                <div class="agent-card-footer">
+                  <span class="agent-card-cta">Open Planner <span class="cta-arrow">→</span></span>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -859,6 +985,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=6.0"></script>
+  <script src="/static/js/app.js?v=6.2"></script>
 </body>
 </html>
