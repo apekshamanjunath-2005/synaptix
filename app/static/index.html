@@ -33,12 +33,21 @@
             <span class="brand-badge">AI</span>
           </div>
         </div>
-        <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle Sidebar">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="3" x2="9" y2="21"></line>
-          </svg>
-        </button>
+        <div class="sidebar-header-actions">
+          <button class="icon-btn reminder-bell-btn" id="reminderBellBtn" title="Smart Reminders">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="reminder-badge" id="reminderBadge" style="display: none;">0</span>
+          </button>
+          <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle Sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Navigation Menu: Clean User-Facing Tabs Only -->
@@ -109,10 +118,19 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-      <!-- Floating Mobile Menu Button -->
-      <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-      </button>
+      <!-- Floating Top Navigation Actions (Mobile & Collapsed View) -->
+      <div class="floating-top-bar">
+        <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <button class="floating-bell-btn" id="floatingReminderBellBtn" title="Smart Reminders">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="reminder-badge" id="floatingReminderBadge" style="display: none;">0</span>
+        </button>
+      </div>
 
       <!-- Hidden Top Navigation Header (Retained for Test & Controller Compatibility) -->
       <header class="top-header" style="display: none;" aria-hidden="true">
@@ -234,12 +252,13 @@
             </div>
             <form id="createTaskForm" class="card-form inline-form">
               <input type="text" id="newTaskTitle" placeholder="What needs to be done?" required class="dark-input flex-2">
-              <input type="date" id="newTaskDueDate" class="dark-input flex-1">
+              <input type="date" id="newTaskDueDate" class="dark-input flex-1" title="Due Date">
               <select id="newTaskPriority" class="dark-input flex-1">
                 <option value="low">Low Priority</option>
                 <option value="medium" selected>Medium Priority</option>
                 <option value="high">High Priority</option>
               </select>
+              <input type="datetime-local" id="newTaskReminder" class="dark-input flex-1" title="Optional Reminder Alert">
               <button type="submit" class="primary-btn">+ Add Task</button>
             </form>
           </div>
@@ -267,7 +286,8 @@
               <input type="text" id="newNoteTitle" placeholder="Title (optional)" class="dark-input">
               <textarea id="newNoteContent" placeholder="Write your thoughts, meeting notes, or ideas..." required rows="3" class="dark-input"></textarea>
               <div class="form-row">
-                <input type="text" id="newNoteTags" placeholder="Tags (comma separated: work, ideas, sync)" class="dark-input flex-1">
+                <input type="text" id="newNoteTags" placeholder="Tags (comma separated: work, ideas, sync)" class="dark-input flex-2">
+                <input type="datetime-local" id="newNoteReminder" class="dark-input flex-1" title="Optional Reminder Alert">
                 <button type="submit" class="primary-btn">Save Note</button>
               </div>
             </form>
@@ -479,6 +499,62 @@
       </section>
     </main>
   </div>
+
+  <!-- Slide-out Smart Reminders Drawer -->
+  <div class="reminders-drawer-overlay" id="remindersOverlay" style="display: none;"></div>
+  <aside class="reminders-drawer" id="remindersDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <div class="drawer-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div>
+          <h3 class="drawer-title">Smart Reminders</h3>
+          <p class="drawer-subtitle">Timely alerts for tasks, notes & schedules</p>
+        </div>
+      </div>
+      <button class="drawer-close-btn" id="closeRemindersDrawer" title="Close Drawer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <!-- Quick Add Form inside Drawer -->
+    <div class="drawer-quick-card">
+      <div class="drawer-quick-header">
+        <span>+ Quick Reminder</span>
+      </div>
+      <form id="quickReminderForm" class="drawer-quick-form">
+        <input type="text" id="quickReminderTitle" placeholder="Remind me to..." required class="dark-input">
+        <input type="datetime-local" id="quickReminderTime" required class="dark-input">
+        <button type="submit" class="primary-btn w-full">+ Set Reminder</button>
+      </form>
+    </div>
+
+    <!-- Drawer Content / Sections -->
+    <div class="drawer-content">
+      <div class="reminders-section">
+        <div class="section-heading">
+          <span>Active & Upcoming</span>
+          <span class="count-pill" id="activeRemindersCount">0</span>
+        </div>
+        <div id="activeRemindersList" class="reminders-list">
+          <p class="empty-state">No upcoming reminders.</p>
+        </div>
+      </div>
+
+      <div class="reminders-section" style="margin-top: 20px;">
+        <div class="section-heading">
+          <span>Past / Dismissed</span>
+        </div>
+        <div id="pastRemindersList" class="reminders-list past-list">
+          <p class="empty-state">No past reminders.</p>
+        </div>
+      </div>
+    </div>
+  </aside>
 
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>

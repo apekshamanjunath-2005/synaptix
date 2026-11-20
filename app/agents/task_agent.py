@@ -13,6 +13,9 @@ from app.agents.tools import (
     task_delete,
     get_today_date,
     get_tomorrow_date,
+    set_reminder,
+    list_reminders,
+    dismiss_reminder,
 )
 
 settings = get_settings()
@@ -47,5 +50,8 @@ task_agent = LlmAgent(
         FunctionTool(func=task_delete),
         FunctionTool(func=get_today_date),
         FunctionTool(func=get_tomorrow_date),
+        FunctionTool(func=set_reminder),
+        FunctionTool(func=list_reminders),
+        FunctionTool(func=dismiss_reminder),
     ],
 )

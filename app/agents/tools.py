@@ -221,10 +221,11 @@ def calendar_create_event(
     start_time: str,
     end_time: str,
     description: Optional[str] = "",
-    location: Optional[str] = ""
+    location: Optional[str] = "",
+    reminder_minutes: int = 15
 ) -> str:
     """
-    Schedule an event on the user's calendar via Calendar MCP.
+    Schedule an event on the user's calendar via Calendar MCP with default popup reminder.
 
     Args:
         summary: Event title or name.
@@ -232,6 +233,7 @@ def calendar_create_event(
         end_time: End datetime in ISO 8601 (YYYY-MM-DDTHH:MM:SS).
         description: Agenda or details.
         location: Meeting link or physical address.
+        reminder_minutes: Minutes before the event to trigger popup reminder (default: 15).
 
     Returns:
         JSON string confirming event creation.
@@ -242,7 +244,8 @@ def calendar_create_event(
             start_time=start_time,
             end_time=end_time,
             description=description or "",
-            location=location or ""
+            location=location or "",
+            reminder_minutes=reminder_minutes
         )
         return json.dumps({"success": True, "action": "scheduled", "event": event_record})
     except Exception as e:
@@ -459,5 +462,111 @@ def email_draft_list() -> str:
     except Exception as exc:
         logger.error("Error listing email drafts: %s", exc)
         return json.dumps({"success": False, "error": str(exc)})
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 6. REMINDER TOOLS (User-scoped Notifications & Timely Alerts)
+# ════════════════════════════════════════════════════════════════════════════════
+
+def set_reminder(
+    title: str,
+    remind_at: str,
+    source_type: str = "custom",
+    source_id: Optional[str] = None
+) -> str:
+    """
+    Schedule a smart reminder for the user.
+
+    Args:
+        title: What the reminder is about (e.g. "Review DBMS notes", "Call Disha").
+        remind_at: Date and time to trigger reminder (ISO 8601 string, e.g. '2026-11-20T18:00:00' or relative calculated timestamp).
+        source_type: Type of source item ('note', 'task', 'event', 'custom'). Default is 'custom'.
+        source_id: Optional ID of the linked note, task, or event.
+
+    Returns:
+        JSON string confirming reminder creation with ID and trigger time.
+    """
+    try:
+        uid = current_user_id.get("default_user")
+        reminder = firestore_service.create_reminder(
+            user_id=uid,
+            title=title,
+            remind_at_iso=remind_at,
+            source_type=source_type,
+            source_id=source_id,
+        )
+        return json.dumps({"success": True, "action": "reminder_created", "reminder": reminder})
+    except Exception as exc:
+        logger.error("Error creating reminder: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+def list_reminders(status: Optional[str] = None) -> str:
+    """
+    List user reminders, optionally filtering by status ('pending', 'snoozed', 'dismissed', 'triggered').
+
+    Args:
+        status: Optional status filter.
+
+    Returns:
+        JSON string with list of user reminders ordered by time.
+    """
+    try:
+        uid = current_user_id.get("default_user")
+        reminders = firestore_service.list_reminders(user_id=uid, status=status)
+        return json.dumps({"success": True, "count": len(reminders), "reminders": reminders})
+    except Exception as exc:
+        logger.error("Error listing reminders: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+def dismiss_reminder(reminder_id: str) -> str:
+    """
+    Dismiss a reminder so it no longer triggers.
+
+    Args:
+        reminder_id: The ID of the reminder to dismiss (e.g. 'reminder-123abc').
+
+    Returns:
+        JSON string confirming reminder status update.
+    """
+    try:
+        uid = current_user_id.get("default_user")
+        res = firestore_service.update_reminder_status(user_id=uid, reminder_id=reminder_id, status="dismissed")
+        if res:
+            return json.dumps({"success": True, "action": "dismissed", "reminder": res})
+        return json.dumps({"success": False, "error": f"Reminder '{reminder_id}' not found."})
+    except Exception as exc:
+        logger.error("Error dismissing reminder: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+def snooze_reminder(reminder_id: str, minutes: int = 10) -> str:
+    """
+    Snooze a reminder by the specified number of minutes (defaults to 10 minutes).
+
+    Args:
+        reminder_id: The ID of the reminder to snooze.
+        minutes: Number of minutes to snooze for (default: 10).
+
+    Returns:
+        JSON string confirming updated snooze trigger time.
+    """
+    try:
+        uid = current_user_id.get("default_user")
+        res = firestore_service.update_reminder_status(user_id=uid, reminder_id=reminder_id, status="snoozed", snooze_minutes=minutes)
+        if res:
+            return json.dumps({"success": True, "action": "snoozed", "reminder": res})
+        return json.dumps({"success": False, "error": f"Reminder '{reminder_id}' not found."})
+    except Exception as exc:
+        logger.error("Error snoozing reminder: %s", exc)
+        return json.dumps({"success": False, "error": str(exc)})
+
+
+# Aliases
+reminder_create = set_reminder
+reminder_list = list_reminders
+reminder_dismiss = dismiss_reminder
+reminder_snooze = snooze_reminder
 
 

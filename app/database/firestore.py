@@ -11,7 +11,7 @@ import json
 import logging
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -104,7 +104,7 @@ class LocalFirestoreCollection:
 class LocalFirestoreClient:
     def __init__(self):
         self._lock = threading.Lock()
-        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}}
+        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}, "reminders": {}}
         self._load()
 
     def _load(self):
@@ -112,8 +112,8 @@ class LocalFirestoreClient:
             try:
                 data = json.loads(LOCAL_DB_FILE.read_text(encoding="utf-8"))
                 self._storage.update(data)
-                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes, %d day_plans)",
-                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})))
+                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes, %d day_plans, %d reminders)",
+                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})), len(self._storage.get("reminders", {})))
             except Exception as e:
                 logger.warning("Could not read local Firestore cache: %s", e)
 
@@ -506,6 +506,162 @@ class FirestoreService:
             logger.info("Deleted day plan for user %s on %s", effective_uid, date_str)
             return True
         return False
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # REMINDERS COLLECTION (Per-User Scoped)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    def create_reminder(
+        self,
+        user_id: str,
+        title: str,
+        remind_at_iso: str,
+        source_type: str = "custom",
+        source_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new reminder in Firestore for the given user.
+        status defaults to 'pending'.
+        """
+        effective_uid = user_id or "default_user"
+        reminder_id = f"reminder-{uuid.uuid4().hex[:6]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        doc_payload = {
+            "id": reminder_id,
+            "user_id": effective_uid,
+            "title": title,
+            "remind_at": remind_at_iso,
+            "source_type": source_type or "custom",
+            "source_id": source_id,
+            "status": "pending",
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+
+        self.client.collection("reminders").document(reminder_id).set(doc_payload)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Created reminder %s ('%s') for user %s at %s", reminder_id, title, effective_uid, remind_at_iso)
+        return doc_payload
+
+    def list_reminders(
+        self,
+        user_id: str,
+        status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        List all reminders for user, optionally filtered by status ('pending', 'triggered', 'dismissed', 'snoozed').
+        Ordered by remind_at ascending.
+        """
+        effective_uid = user_id or "default_user"
+        docs = self.client.collection("reminders").stream()
+        reminders = []
+        for d in docs:
+            data = d.to_dict()
+            if data and data.get("user_id") == effective_uid:
+                if status is None or data.get("status") == status:
+                    reminders.append(data)
+
+        usage_tracker.record_tool_call("firestore")
+        sorted_reminders = sorted(reminders, key=lambda x: x.get("remind_at", ""))
+        return sorted_reminders
+
+    def get_due_reminders(
+        self,
+        user_id: str,
+        now_iso: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Return all 'pending' and 'snoozed' reminders for user where remind_at <= now_iso.
+        """
+        effective_uid = user_id or "default_user"
+        target_now = now_iso or datetime.now(timezone.utc).isoformat()
+
+        def _to_dt(iso_str: str) -> datetime:
+            try:
+                clean = iso_str.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(clean)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except Exception:
+                return datetime.max.replace(tzinfo=timezone.utc)
+
+        threshold_dt = _to_dt(target_now)
+        docs = self.client.collection("reminders").stream()
+        due_list = []
+        for d in docs:
+            data = d.to_dict()
+            if data and data.get("user_id") == effective_uid:
+                if data.get("status") in ("pending", "snoozed"):
+                    remind_dt = _to_dt(data.get("remind_at", ""))
+                    if remind_dt <= threshold_dt:
+                        due_list.append(data)
+
+        usage_tracker.record_tool_call("firestore")
+        return sorted(due_list, key=lambda x: x.get("remind_at", ""))
+
+    def update_reminder_status(
+        self,
+        user_id: str,
+        reminder_id: str,
+        status: str,
+        remind_at_iso: Optional[str] = None,
+        snooze_minutes: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a reminder's status ('triggered', 'dismissed', 'snoozed', 'pending').
+        If status is 'snoozed', updates remind_at to remind_at_iso or now + snooze_minutes (default 10m).
+        """
+        effective_uid = user_id or "default_user"
+        doc_ref = self.client.collection("reminders").document(reminder_id)
+        doc = doc_ref.get()
+        if not doc or not doc.exists:
+            return None
+
+        data = doc.to_dict()
+        if data.get("user_id") != effective_uid:
+            return None
+
+        data["status"] = status
+        now = datetime.now(timezone.utc)
+
+        if status == "snoozed":
+            if remind_at_iso:
+                data["remind_at"] = remind_at_iso
+            elif snooze_minutes:
+                data["remind_at"] = (now + timedelta(minutes=snooze_minutes)).isoformat()
+            else:
+                data["remind_at"] = (now + timedelta(minutes=10)).isoformat()
+
+        data["updated_at"] = now.isoformat()
+        doc_ref.set(data)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Updated reminder %s status to '%s' for user %s", reminder_id, status, effective_uid)
+        return data
+
+    def delete_reminder(
+        self,
+        user_id: str,
+        reminder_id: str
+    ) -> bool:
+        """
+        Delete a reminder from Firestore.
+        """
+        effective_uid = user_id or "default_user"
+        doc_ref = self.client.collection("reminders").document(reminder_id)
+        doc = doc_ref.get()
+        if not doc or not doc.exists:
+            return False
+
+        data = doc.to_dict()
+        if data.get("user_id") != effective_uid:
+            return False
+
+        doc_ref.delete()
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Deleted reminder %s for user %s", reminder_id, effective_uid)
+        return True
 
 
 # Global singleton instance

@@ -11,6 +11,8 @@ from app.agents.tools import (
     note_list,
     note_search,
     note_delete,
+    set_reminder,
+    list_reminders,
 )
 
 settings = get_settings()
@@ -42,5 +44,7 @@ notes_agent = LlmAgent(
         FunctionTool(func=note_list),
         FunctionTool(func=note_search),
         FunctionTool(func=note_delete),
+        FunctionTool(func=set_reminder),
+        FunctionTool(func=list_reminders),
     ],
 )

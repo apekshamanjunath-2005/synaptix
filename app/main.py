@@ -20,6 +20,7 @@ from app.api.calendar import router as calendar_router
 from app.api.weather import router as weather_router
 from app.api.planner import router as planner_router
 from app.api.gmail import router as gmail_router
+from app.api.reminders import router as reminders_router
 from app.config import get_settings
 
 # Configure Logging
@@ -76,6 +77,7 @@ app.include_router(calendar_router)
 app.include_router(weather_router)
 app.include_router(planner_router)
 app.include_router(gmail_router)
+app.include_router(reminders_router)
 
 # Mount Static Files
 STATIC_DIR = Path(__file__).resolve().parent / "static"

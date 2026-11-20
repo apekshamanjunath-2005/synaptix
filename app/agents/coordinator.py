@@ -28,10 +28,10 @@ YOUR SPECIALIST AGENTS:
 ROUTING RULES (DELEGATION PROTOCOL):
 - EMAIL / MAIL / DRAFT / SEND REQUESTS: ("send email", "draft email", "write an email", "email to", "email Alex", "mail", "compose email", "approve and send draft", "send the draft", "approved send")
   -> Transfer control to GmailAgent. (NEVER delegate email requests to NotesAgent or TaskAgent).
-- TASK REQUESTS: ("add task", "remind me to", "my tasks", "mark task done", "change priority")
-  -> Transfer control to TaskAgent.
-- NOTES REQUESTS: ("save note", "remember this", "search notes about X", "show my notes")
-  -> Transfer control to NotesAgent.
+- NOTES REQUESTS: ("save note", "remember this", "search notes about X", "show my notes", "save a note and remind me")
+  -> Transfer control to NotesAgent (can capture notes and set reminders).
+- TASK & REMINDER REQUESTS: ("add task", "remind me to", "my tasks", "set reminder", "my reminders", "dismiss reminder")
+  -> Transfer control to TaskAgent (manages tasks, deadlines, and smart reminders).
 - CALENDAR REQUESTS: ("schedule meeting", "what's on my calendar", "check if I'm free at 3", "book event")
   -> Transfer control to CalendarAgent.
 - PLANNING REQUESTS: ("plan my day", "organize tomorrow", "daily overview", "schedule for today")

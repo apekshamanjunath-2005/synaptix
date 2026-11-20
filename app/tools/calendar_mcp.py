@@ -153,14 +153,21 @@ class CalendarMCPProvider:
         end_time: str,
         description: str = "",
         location: str = "",
+        reminder_minutes: int = 15,
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        MCP Tool: Schedule a new calendar event.
+        MCP Tool: Schedule a new calendar event with default Google Calendar popup reminder.
         """
         usage_tracker.record_tool_call("calendar")
         uid = user_id or current_user_id.get("default_user")
         event_id = f"event-{uuid.uuid4().hex[:6]}"
+        reminders_payload = {
+            "useDefault": False,
+            "overrides": [
+                {"method": "popup", "minutes": reminder_minutes}
+            ]
+        }
         new_event = {
             "id": event_id,
             "summary": summary,
@@ -170,13 +177,32 @@ class CalendarMCPProvider:
             "location": location or "",
             "user_id": uid,
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "reminders": reminders_payload,
         }
+
+        # Attempt sync with live Google Calendar if credentials exist
+        client = self.get_user_calendar_client(uid)
+        if client:
+            try:
+                gcal_body = {
+                    "summary": summary,
+                    "description": description or "",
+                    "location": location or "",
+                    "start": {"dateTime": start_time},
+                    "end": {"dateTime": end_time},
+                    "reminders": reminders_payload,
+                }
+                res = client.events().insert(calendarId="primary", body=gcal_body).execute()
+                new_event["google_event_id"] = res.get("id")
+            except Exception as gcal_err:
+                logger.warning("Could not sync event to Google Calendar: %s", gcal_err)
 
         with self._lock:
             self._events[event_id] = new_event
             self._persist()
 
-        logger.info("Event scheduled via MCP: %s (%s to %s) for user %s", summary, start_time, end_time, uid)
+        logger.info("Event scheduled via MCP: %s (%s to %s) with %dm popup reminder for user %s",
+                    summary, start_time, end_time, reminder_minutes, uid)
         return new_event
 
     def update_event(

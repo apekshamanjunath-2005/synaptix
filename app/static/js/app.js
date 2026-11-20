@@ -560,14 +560,38 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = document.getElementById('newTaskTitle').value.trim();
       const dueDate = document.getElementById('newTaskDueDate').value;
       const priority = document.getElementById('newTaskPriority').value;
+      const remInput = document.getElementById('newTaskReminder');
       if (!title) return;
 
       try {
-        await fetch('/api/tasks', {
+        const resp = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, due_date: dueDate || null, priority }),
         });
+        const taskData = await resp.json();
+
+        // Optional attached reminder
+        if (remInput && remInput.value && taskData.task) {
+          try {
+            await fetch('/api/reminders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: `Task: ${title}`,
+                remind_at: new Date(remInput.value).toISOString(),
+                source_type: 'task',
+                source_id: taskData.task.id,
+              }),
+            });
+            remInput.value = '';
+            showToast('Reminder attached to task!', 'info');
+            if (typeof loadReminders === 'function') loadReminders();
+          } catch (remErr) {
+            console.warn('Failed attaching reminder:', remErr);
+          }
+        }
+
         document.getElementById('newTaskTitle').value = '';
         showToast('Task added to Firestore', 'success');
         loadTasks();
@@ -637,16 +661,40 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = document.getElementById('newNoteTitle').value.trim();
       const content = document.getElementById('newNoteContent').value.trim();
       const tagsStr = document.getElementById('newNoteTags').value.trim();
+      const remInput = document.getElementById('newNoteReminder');
       if (!content) return;
 
       const tags = tagsStr ? tagsStr.split(',').map((t) => t.trim().toLowerCase()) : [];
 
       try {
-        await fetch('/api/notes', {
+        const resp = await fetch('/api/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content, title: title || null, tags }),
         });
+        const noteData = await resp.json();
+
+        // Optional attached reminder
+        if (remInput && remInput.value && noteData.note) {
+          try {
+            await fetch('/api/reminders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: `Note: ${title || content.slice(0, 30)}`,
+                remind_at: new Date(remInput.value).toISOString(),
+                source_type: 'note',
+                source_id: noteData.note.id,
+              }),
+            });
+            remInput.value = '';
+            showToast('Reminder attached to note!', 'info');
+            if (typeof loadReminders === 'function') loadReminders();
+          } catch (remErr) {
+            console.warn('Failed attaching reminder:', remErr);
+          }
+        }
+
         document.getElementById('newNoteTitle').value = '';
         document.getElementById('newNoteContent').value = '';
         document.getElementById('newNoteTags').value = '';
@@ -1261,4 +1309,299 @@ document.addEventListener('DOMContentLoaded', () => {
       spotlight.style.opacity = '0';
     });
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 17. SMART REMINDERS & DUE ALERTS SYSTEM
+  // ══════════════════════════════════════════════════════════════════════════
+  const reminderBellBtn = document.getElementById('reminderBellBtn');
+  const floatingReminderBellBtn = document.getElementById('floatingReminderBellBtn');
+  const reminderBadge = document.getElementById('reminderBadge');
+  const floatingReminderBadge = document.getElementById('floatingReminderBadge');
+  const remindersDrawer = document.getElementById('remindersDrawer');
+  const remindersOverlay = document.getElementById('remindersOverlay');
+  const closeRemindersDrawer = document.getElementById('closeRemindersDrawer');
+  const quickReminderForm = document.getElementById('quickReminderForm');
+  const activeRemindersList = document.getElementById('activeRemindersList');
+  const pastRemindersList = document.getElementById('pastRemindersList');
+  const activeRemindersCount = document.getElementById('activeRemindersCount');
+
+  const alertedReminderIds = new Set();
+
+  function requestNotificationPermission() {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+
+  function formatReminderTime(isoStr) {
+    if (!isoStr) return 'Unset time';
+    try {
+      const dt = new Date(isoStr);
+      const now = new Date();
+      const diffMs = dt - now;
+      const isPast = diffMs < 0;
+
+      const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isToday = dt.toDateString() === now.toDateString();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+      const isTomorrow = dt.toDateString() === tomorrow.toDateString();
+
+      if (isPast) {
+        return `⚠️ Overdue (${dt.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr})`;
+      } else if (isToday) {
+        return `Today at ${timeStr}`;
+      } else if (isTomorrow) {
+        return `Tomorrow at ${timeStr}`;
+      } else {
+        return `${dt.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeStr}`;
+      }
+    } catch {
+      return isoStr;
+    }
+  }
+
+  function updateRemindersBadge(count) {
+    [reminderBadge, floatingReminderBadge].forEach((b) => {
+      if (!b) return;
+      if (count > 0) {
+        b.textContent = count;
+        b.style.display = 'flex';
+      } else {
+        b.style.display = 'none';
+      }
+    });
+  }
+
+  function openRemindersDrawerFunc() {
+    requestNotificationPermission();
+    if (remindersDrawer) remindersDrawer.classList.add('is-open');
+    if (remindersOverlay) remindersOverlay.style.display = 'block';
+    loadReminders();
+  }
+
+  function closeRemindersDrawerFunc() {
+    if (remindersDrawer) remindersDrawer.classList.remove('is-open');
+    if (remindersOverlay) remindersOverlay.style.display = 'none';
+  }
+
+  if (reminderBellBtn) reminderBellBtn.addEventListener('click', openRemindersDrawerFunc);
+  if (floatingReminderBellBtn) floatingReminderBellBtn.addEventListener('click', openRemindersDrawerFunc);
+  if (closeRemindersDrawer) closeRemindersDrawer.addEventListener('click', closeRemindersDrawerFunc);
+  if (remindersOverlay) remindersOverlay.addEventListener('click', closeRemindersDrawerFunc);
+
+  async function loadReminders() {
+    try {
+      const res = await fetch('/api/reminders');
+      if (!res.ok) return;
+      const data = await res.json();
+      const reminders = data.reminders || [];
+
+      const active = reminders.filter((r) => r.status === 'pending' || r.status === 'snoozed');
+      const past = reminders.filter((r) => r.status === 'dismissed' || r.status === 'triggered');
+
+      if (activeRemindersCount) activeRemindersCount.textContent = active.length;
+
+      // Render Active Reminders
+      if (activeRemindersList) {
+        if (active.length === 0) {
+          activeRemindersList.innerHTML = '<p class="empty-state">No upcoming reminders.</p>';
+        } else {
+          const nowIso = new Date().toISOString();
+          activeRemindersList.innerHTML = active.map((r) => {
+            const isDue = r.remind_at <= nowIso;
+            const typeClass = (r.source_type || 'custom').toLowerCase();
+            return `
+              <div class="reminder-card ${isDue ? 'is-due' : ''}" id="rem-card-${r.id}">
+                <div class="reminder-card-top">
+                  <span class="reminder-card-title">${escapeHtml(r.title)}</span>
+                  <span class="reminder-badge-type ${typeClass}">${r.source_type || 'Custom'}</span>
+                </div>
+                <div class="reminder-card-time">
+                  <span>⏱ ${formatReminderTime(r.remind_at)}</span>
+                  ${r.status === 'snoozed' ? '<span style="color:var(--glow-orange);font-weight:600;margin-left:6px;">(Snoozed)</span>' : ''}
+                </div>
+                <div class="reminder-card-actions">
+                  <button class="rem-btn rem-snooze" onclick="snoozeReminderItem('${r.id}', 10)">+10m Snooze</button>
+                  <button class="rem-btn rem-dismiss" onclick="dismissReminderItem('${r.id}')">✓ Dismiss</button>
+                  <button class="rem-btn rem-delete" onclick="deleteReminderItem('${r.id}')" title="Delete">✕</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Render Past Reminders
+      if (pastRemindersList) {
+        if (past.length === 0) {
+          pastRemindersList.innerHTML = '<p class="empty-state">No past reminders.</p>';
+        } else {
+          pastRemindersList.innerHTML = past.slice(0, 10).map((r) => `
+            <div class="reminder-card" style="opacity:0.65;">
+              <div class="reminder-card-top">
+                <span class="reminder-card-title">${escapeHtml(r.title)}</span>
+                <span style="font-size:0.7rem;color:var(--text-muted);text-transform:capitalize;">${r.status}</span>
+              </div>
+              <div class="reminder-card-time">
+                <span>Completed / Dismissed</span>
+              </div>
+              <div class="reminder-card-actions">
+                <button class="rem-btn rem-delete" onclick="deleteReminderItem('${r.id}')" title="Delete">✕</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load reminders:', err);
+    }
+  }
+
+  function showReminderToast(reminder) {
+    if (!toastContainer) return;
+    const existing = document.getElementById(`reminder-toast-${reminder.id}`);
+    if (existing) return;
+
+    const toast = document.createElement('div');
+    toast.id = `reminder-toast-${reminder.id}`;
+    toast.className = 'toast reminder-toast';
+    toast.innerHTML = `
+      <div class="reminder-toast-header">
+        <span>⏰</span>
+        <span>Smart Reminder Due</span>
+      </div>
+      <div class="reminder-toast-body">${escapeHtml(reminder.title)}</div>
+      <div class="reminder-toast-actions">
+        <button class="toast-btn toast-btn-snooze" data-id="${reminder.id}">Snooze 10m</button>
+        <button class="toast-btn toast-btn-dismiss" data-id="${reminder.id}">Dismiss</button>
+      </div>
+    `;
+
+    toast.querySelector('.toast-btn-snooze').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await snoozeReminderItem(reminder.id, 10);
+      toast.remove();
+    });
+
+    toast.querySelector('.toast-btn-dismiss').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await dismissReminderItem(reminder.id);
+      toast.remove();
+    });
+
+    toastContainer.appendChild(toast);
+
+    // Desktop Browser Notification
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification('⏰ Synaptix Reminder', {
+          body: reminder.title,
+        });
+      } catch (e) {
+        console.debug('Browser notification error:', e);
+      }
+    }
+  }
+
+  async function pollDueReminders() {
+    try {
+      const res = await fetch('/api/reminders/due');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && data.due_reminders) {
+        updateRemindersBadge(data.due_reminders.length);
+        data.due_reminders.forEach((r) => {
+          if (!alertedReminderIds.has(r.id)) {
+            alertedReminderIds.add(r.id);
+            showReminderToast(r);
+          }
+        });
+      }
+    } catch (err) {
+      console.debug('Error polling due reminders:', err);
+    }
+  }
+
+  window.snoozeReminderItem = async (reminderId, minutes = 10) => {
+    try {
+      const res = await fetch(`/api/reminders/${reminderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'snoozed', snooze_minutes: minutes }),
+      });
+      if (res.ok) {
+        showToast(`Reminder snoozed for ${minutes} minutes`, 'info');
+        loadReminders();
+        pollDueReminders();
+      }
+    } catch (err) {
+      showToast('Failed to snooze reminder: ' + err.message, 'error');
+    }
+  };
+
+  window.dismissReminderItem = async (reminderId) => {
+    try {
+      const res = await fetch(`/api/reminders/${reminderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'dismissed' }),
+      });
+      if (res.ok) {
+        showToast('Reminder dismissed', 'success');
+        loadReminders();
+        pollDueReminders();
+      }
+    } catch (err) {
+      showToast('Failed to dismiss reminder: ' + err.message, 'error');
+    }
+  };
+
+  window.deleteReminderItem = async (reminderId) => {
+    if (!confirm('Delete this reminder?')) return;
+    try {
+      const res = await fetch(`/api/reminders/${reminderId}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Reminder deleted', 'info');
+        loadReminders();
+        pollDueReminders();
+      }
+    } catch (err) {
+      showToast('Failed to delete reminder: ' + err.message, 'error');
+    }
+  };
+
+  if (quickReminderForm) {
+    quickReminderForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('quickReminderTitle').value.trim();
+      const timeVal = document.getElementById('quickReminderTime').value;
+      if (!title || !timeVal) return;
+
+      try {
+        const remindAtIso = new Date(timeVal).toISOString();
+        const res = await fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, remind_at: remindAtIso, source_type: 'custom' }),
+        });
+        if (res.ok) {
+          document.getElementById('quickReminderTitle').value = '';
+          document.getElementById('quickReminderTime').value = '';
+          showToast('Smart reminder scheduled!', 'success');
+          loadReminders();
+          pollDueReminders();
+        } else {
+          showToast('Failed to create reminder', 'error');
+        }
+      } catch (err) {
+        showToast('Error creating reminder: ' + err.message, 'error');
+      }
+    });
+  }
+
+  // Initial Reminders Load & Polling setup
+  loadReminders();
+  pollDueReminders();
+  setInterval(pollDueReminders, 30000);
 });

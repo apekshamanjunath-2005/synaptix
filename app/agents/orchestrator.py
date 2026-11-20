@@ -31,6 +31,10 @@ from app.agents.tools import (
     email_draft_create,
     email_draft_send,
     email_draft_list,
+    set_reminder,
+    list_reminders,
+    dismiss_reminder,
+    snooze_reminder,
 )
 
 logger = logging.getLogger("synaptix.agents.orchestrator")
@@ -186,6 +190,43 @@ class MultiAgentOrchestrator:
                 fallback["orchestration"]["live_adk_error"] = str(exc)
                 return fallback
 
+    def _parse_natural_reminder_time(self, text: str) -> str:
+        """Parse natural language phrases into an ISO 8601 reminder timestamp."""
+        import re
+        from datetime import datetime, date, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        t_lower = text.lower()
+
+        # Match "in X minutes" / "in X mins" / "in X min"
+        m_min = re.search(r"in\s+(\d+)\s*(?:minutes|minute|mins|min)", t_lower)
+        if m_min:
+            mins = int(m_min.group(1))
+            return (now + timedelta(minutes=mins)).isoformat()
+
+        # Match "in X hours" / "in X hr" / "in X hrs"
+        m_hr = re.search(r"in\s+(\d+)\s*(?:hours|hour|hrs|hr)", t_lower)
+        if m_hr:
+            hrs = int(m_hr.group(1))
+            return (now + timedelta(hours=hrs)).isoformat()
+
+        # Match "tomorrow at 6 pm", "tomorrow at 18:00", "tomorrow at 9 am"
+        if "tomorrow" in t_lower:
+            tomorrow_date = (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+            m_time = re.search(r"(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", t_lower)
+            if m_time and ("pm" in t_lower or "am" in t_lower or ":" in t_lower):
+                hr = int(m_time.group(1))
+                mn = int(m_time.group(2)) if m_time.group(2) else 0
+                meridiem = m_time.group(3)
+                if meridiem == "pm" and hr < 12:
+                    hr += 12
+                elif meridiem == "am" and hr == 12:
+                    hr = 0
+                return f"{tomorrow_date}T{hr:02d}:{mn:02d}:00Z"
+            return f"{tomorrow_date}T09:00:00Z"
+
+        # Default 1 hour from now
+        return (now + timedelta(hours=1)).isoformat()
+
     async def _deterministic_offline_delegation(
         self,
         user_input: str,
@@ -323,27 +364,7 @@ class MultiAgentOrchestrator:
                     f"If you'd like to adjust the tone, subject, or details, let me know what changes to make!"
                 )
 
-        # ROUTING RULE 2: Task Intent
-        elif any(kw in lower for kw in ["task", "todo", "remind me", "pending", "complete task"]):
-            activated_agent = "TaskAgent"
-            if "add" in lower or "create" in lower or "remind" in lower:
-                title = user_input.replace("add task", "").replace("remind me to", "").strip(": ")
-                raw_res = json.loads(task_create(title=title or "New Task"))
-                tools_called.append("task_create")
-                t = raw_res["task"]
-                reply = f"✅ **Task Created by TaskAgent:**\n- **ID:** `{t['id']}`\n- **Title:** {t['title']}\n- **Due Date:** {t['due_date']}\n- **Priority:** {t['priority'].upper()}\n- **Status:** {t['status']}"
-            elif "pending" in lower or "show" in lower or "list" in lower:
-                raw_res = json.loads(task_list(status="pending"))
-                tools_called.append("task_list")
-                tasks = raw_res.get("tasks", [])
-                lines = [f"- [`{t['id']}`] **{t['title']}** (Due: {t['due_date']}, Priority: {t['priority']})" for t in tasks]
-                reply = f"📋 **Pending Tasks (via TaskAgent):**\n" + ("\n".join(lines) if lines else "No pending tasks found!")
-            else:
-                raw_res = json.loads(task_list())
-                tools_called.append("task_list")
-                reply = f"📋 **Tasks Overview (TaskAgent):** Found {raw_res['count']} tasks in storage."
-
-        # ROUTING RULE 3: Notes Intent
+        # ROUTING RULE 3: Notes Intent (Evaluated before tasks so 'save a note and remind me' activates NotesAgent)
         elif any(kw in lower for kw in ["note", "remember", "save note", "write down"]):
             activated_agent = "NotesAgent"
             if "search" in lower or "find" in lower:
@@ -364,7 +385,82 @@ class MultiAgentOrchestrator:
                 raw_res = json.loads(note_save(content=content or "Personal note"))
                 tools_called.append("note_save")
                 n = raw_res["note"]
-                reply = f"📝 **Note Saved by NotesAgent:**\n- **ID:** `{n['id']}`\n- **Title:** {n['title']}\n- **Content:** {n['content']}"
+                if "remind" in lower:
+                    remind_iso = self._parse_natural_reminder_time(user_input)
+                    r_res = json.loads(set_reminder(title=f"Note: {n['title']}", remind_at=remind_iso, source_type="note", source_id=n["id"]))
+                    tools_called.append("set_reminder")
+                    r = r_res["reminder"]
+                    reply = (
+                        f"📝 **Note Saved & Reminder Attached (NotesAgent):**\n"
+                        f"- **Note ID:** `{n['id']}`\n"
+                        f"- **Title:** {n['title']}\n"
+                        f"- **Content:** {n['content']}\n"
+                        f"- **Reminder ID:** `{r['id']}`\n"
+                        f"- **Alert Time:** `{r['remind_at']}`"
+                    )
+                else:
+                    reply = f"📝 **Note Saved by NotesAgent:**\n- **ID:** `{n['id']}`\n- **Title:** {n['title']}\n- **Content:** {n['content']}"
+
+        # ROUTING RULE 4: Task & Reminder Intent
+        elif any(kw in lower for kw in ["task", "todo", "remind me", "reminder", "reminders", "pending", "complete task"]):
+            activated_agent = "TaskAgent"
+            if "dismiss" in lower and "reminder" in lower:
+                import re
+                match = re.search(r"reminder-[a-f0-9]+", lower)
+                rem_id = match.group(0) if match else None
+                if not rem_id:
+                    rems_data = json.loads(list_reminders(status="pending"))
+                    rems = rems_data.get("reminders", [])
+                    if rems:
+                        rem_id = rems[0].get("id")
+                if rem_id:
+                    d_res = json.loads(dismiss_reminder(rem_id))
+                    tools_called.append("dismiss_reminder")
+                    reply = f"✅ **Reminder Dismissed:** `{rem_id}` has been cleared."
+                else:
+                    reply = "⚠️ No pending reminder ID found to dismiss."
+            elif "reminder" in lower and any(w in lower for w in ["list", "show", "my", "all"]):
+                r_res = json.loads(list_reminders())
+                tools_called.append("list_reminders")
+                rems = r_res.get("reminders", [])
+                lines = [f"- [`{r['id']}`] **{r['title']}** (Time: {r['remind_at']}, Status: {r['status']})" for r in rems]
+                reply = f"⏰ **Your Reminders (via TaskAgent):**\n" + ("\n".join(lines) if lines else "No reminders scheduled.")
+            elif "remind" in lower:
+                title = user_input.replace("set reminder for", "").replace("set reminder to", "").replace("set reminder", "").replace("remind me to", "").replace("remind me", "").strip(": ")
+                import re
+                clean_title = re.sub(r"\s+in\s+\d+\s*(?:minutes|mins|hours|hrs|days)", "", title, flags=re.IGNORECASE)
+                clean_title = re.sub(r"\s+tomorrow\s*(?:at\s*\d+(?::\d+)?\s*(?:am|pm)?)?", "", clean_title, flags=re.IGNORECASE).strip()
+                remind_iso = self._parse_natural_reminder_time(user_input)
+                raw_t = json.loads(task_create(title=clean_title or title or "New Task"))
+                tools_called.append("task_create")
+                t = raw_t["task"]
+                raw_r = json.loads(set_reminder(title=t["title"], remind_at=remind_iso, source_type="task", source_id=t["id"]))
+                tools_called.append("set_reminder")
+                r = raw_r["reminder"]
+                reply = (
+                    f"⏰ **Smart Reminder Created (TaskAgent):**\n"
+                    f"- **Reminder ID:** `{r['id']}`\n"
+                    f"- **Title:** {r['title']}\n"
+                    f"- **Alert Time:** `{r['remind_at']}`\n"
+                    f"- **Linked Task:** `{t['id']}`\n"
+                    f"- **Status:** {r['status'].capitalize()}"
+                )
+            elif "add" in lower or "create" in lower:
+                title = user_input.replace("add task", "").strip(": ")
+                raw_res = json.loads(task_create(title=title or "New Task"))
+                tools_called.append("task_create")
+                t = raw_res["task"]
+                reply = f"✅ **Task Created by TaskAgent:**\n- **ID:** `{t['id']}`\n- **Title:** {t['title']}\n- **Due Date:** {t['due_date']}\n- **Priority:** {t['priority'].upper()}\n- **Status:** {t['status']}"
+            elif "pending" in lower or "show" in lower or "list" in lower:
+                raw_res = json.loads(task_list(status="pending"))
+                tools_called.append("task_list")
+                tasks = raw_res.get("tasks", [])
+                lines = [f"- [`{t['id']}`] **{t['title']}** (Due: {t['due_date']}, Priority: {t['priority']})" for t in tasks]
+                reply = f"📋 **Pending Tasks (via TaskAgent):**\n" + ("\n".join(lines) if lines else "No pending tasks found!")
+            else:
+                raw_res = json.loads(task_list())
+                tools_called.append("task_list")
+                reply = f"📋 **Tasks Overview (TaskAgent):** Found {raw_res['count']} tasks in storage."
 
         # ROUTING RULE 4: Calendar Intent
         elif any(kw in lower for kw in ["calendar", "schedule", "meeting", "event", "appointment"]):
