@@ -104,7 +104,14 @@ class LocalFirestoreCollection:
 class LocalFirestoreClient:
     def __init__(self):
         self._lock = threading.Lock()
-        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}, "reminders": {}, "sessions": {}}
+        self._storage: Dict[str, Dict[str, Any]] = {
+            "tasks": {},
+            "notes": {},
+            "day_plans": {},
+            "reminders": {},
+            "sessions": {},
+            "timetables": {},
+        }
         self._load()
 
     def _load(self):
@@ -112,8 +119,8 @@ class LocalFirestoreClient:
             try:
                 data = json.loads(LOCAL_DB_FILE.read_text(encoding="utf-8"))
                 self._storage.update(data)
-                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes, %d day_plans, %d reminders)",
-                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})), len(self._storage.get("reminders", {})))
+                logger.info("Loaded persisted Local Firestore from disk (%d tasks, %d notes, %d day_plans, %d reminders, %d timetables)",
+                            len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})), len(self._storage.get("reminders", {})), len(self._storage.get("timetables", {})))
             except Exception as e:
                 logger.warning("Could not read local Firestore cache: %s", e)
 
@@ -889,6 +896,136 @@ class FirestoreService:
         usage_tracker.record_tool_call("firestore")
         logger.info("Deleted session %s and all associated messages for user %s", session_id, effective_uid)
         return True
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # TIMETABLES COLLECTION (Per-User Scoped Weekly & Daily Blocks)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _get_default_timetable(user_id: str) -> Dict[str, Any]:
+        """Generate default timetable with balanced focus, meeting, and break blocks."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        weekday_blocks = [
+            {"id": "blk-d1", "start_time": "09:00", "end_time": "10:30", "title": "Deep Focus: Core Engineering", "category": "focus"},
+            {"id": "blk-d2", "start_time": "11:00", "end_time": "12:00", "title": "Team Standup & Sync", "category": "meeting"},
+            {"id": "blk-d3", "start_time": "12:30", "end_time": "13:30", "title": "Lunch & Mindful Recharge", "category": "break"},
+            {"id": "blk-d4", "start_time": "14:00", "end_time": "16:00", "title": "Project Execution & Sprint", "category": "focus"},
+            {"id": "blk-d5", "start_time": "17:00", "end_time": "17:45", "title": "Day Wrap-up & Task Logging", "category": "wrapup"},
+        ]
+        weekend_blocks = [
+            {"id": "blk-we1", "start_time": "09:30", "end_time": "11:00", "title": "Deep Focus: Creative Projects", "category": "focus"},
+            {"id": "blk-we2", "start_time": "11:30", "end_time": "12:30", "title": "Skill Learning & Reading", "category": "focus"},
+            {"id": "blk-we3", "start_time": "12:30", "end_time": "13:30", "title": "Mindful Lunch & Break", "category": "break"},
+            {"id": "blk-we4", "start_time": "15:00", "end_time": "16:30", "title": "Personal Projects & Sprint", "category": "focus"},
+            {"id": "blk-we5", "start_time": "17:00", "end_time": "18:00", "title": "Recreation / Fitness", "category": "personal"},
+        ]
+        return {
+            "user_id": user_id,
+            "updated_at": now_iso,
+            "days": {
+                "monday": [dict(b, id=f"blk-mon-{i+1}") for i, b in enumerate(weekday_blocks)],
+                "tuesday": [dict(b, id=f"blk-tue-{i+1}") for i, b in enumerate(weekday_blocks)],
+                "wednesday": [dict(b, id=f"blk-wed-{i+1}") for i, b in enumerate(weekday_blocks)],
+                "thursday": [dict(b, id=f"blk-thu-{i+1}") for i, b in enumerate(weekday_blocks)],
+                "friday": [dict(b, id=f"blk-fri-{i+1}") for i, b in enumerate(weekday_blocks)],
+                "saturday": [dict(b, id=f"blk-sat-{i+1}") for i, b in enumerate(weekend_blocks)],
+                "sunday": [dict(b, id=f"blk-sun-{i+1}") for i, b in enumerate(weekend_blocks)],
+            }
+        }
+
+    def get_user_timetable(self, user_id: str) -> Dict[str, Any]:
+        """
+        Fetch weekly timetable for user. If not yet created, saves and returns default schedule.
+        """
+        effective_uid = user_id or "default_user"
+        doc = self.client.collection("timetables").document(effective_uid).get()
+        if doc and doc.exists:
+            usage_tracker.record_tool_call("firestore")
+            data = doc.to_dict()
+            if data and "days" in data:
+                return data
+
+        default_table = self._get_default_timetable(effective_uid)
+        self.client.collection("timetables").document(effective_uid).set(default_table)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Initialized default weekly timetable for user %s", effective_uid)
+        return default_table
+
+    def save_timetable_day(
+        self,
+        user_id: str,
+        day: str,
+        blocks: List[Dict[str, Any]],
+        apply_to_week: bool = False,
+        target_days: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Save time blocks for a specific day or replicate across the entire week / target weekdays.
+        """
+        effective_uid = user_id or "default_user"
+        timetable = self.get_user_timetable(effective_uid)
+        norm_day = day.strip().lower()
+
+        ALL_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+        # Ensure all blocks have IDs and sorted start_time
+        clean_blocks = []
+        for b in blocks:
+            b_copy = dict(b)
+            if not b_copy.get("id"):
+                b_copy["id"] = f"blk-{uuid.uuid4().hex[:6]}"
+            clean_blocks.append(b_copy)
+        clean_blocks.sort(key=lambda x: x.get("start_time", ""))
+
+        if apply_to_week:
+            # Replicate to all 7 days with unique block IDs
+            for d in ALL_DAYS:
+                timetable["days"][d] = [
+                    dict(blk, id=f"blk-{d[:3]}-{uuid.uuid4().hex[:5]}")
+                    for blk in clean_blocks
+                ]
+            logger.info("Replicated timetable blocks to entire week for user %s", effective_uid)
+        elif target_days:
+            # Replicate to specified list of days (e.g. weekdays Mon-Fri)
+            for d in target_days:
+                d_norm = d.strip().lower()
+                if d_norm in ALL_DAYS:
+                    timetable["days"][d_norm] = [
+                        dict(blk, id=f"blk-{d_norm[:3]}-{uuid.uuid4().hex[:5]}")
+                        for blk in clean_blocks
+                    ]
+            logger.info("Replicated timetable blocks to %s for user %s", target_days, effective_uid)
+        else:
+            # Update only target day
+            if norm_day not in timetable["days"]:
+                timetable["days"][norm_day] = []
+            timetable["days"][norm_day] = clean_blocks
+
+        timetable["updated_at"] = datetime.now(timezone.utc).isoformat()
+        self.client.collection("timetables").document(effective_uid).set(timetable)
+        usage_tracker.record_tool_call("firestore")
+        return timetable
+
+    def delete_timetable_block(self, user_id: str, day: str, block_id: str) -> bool:
+        """
+        Remove a specific time block from a user's day schedule.
+        """
+        effective_uid = user_id or "default_user"
+        timetable = self.get_user_timetable(effective_uid)
+        norm_day = day.strip().lower()
+
+        day_blocks = timetable.get("days", {}).get(norm_day, [])
+        initial_len = len(day_blocks)
+        updated_blocks = [b for b in day_blocks if b.get("id") != block_id]
+
+        if len(updated_blocks) < initial_len:
+            timetable["days"][norm_day] = updated_blocks
+            timetable["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self.client.collection("timetables").document(effective_uid).set(timetable)
+            usage_tracker.record_tool_call("firestore")
+            logger.info("Deleted block %s from %s for user %s", block_id, norm_day, effective_uid)
+            return True
+        return False
 
 
 # Global singleton instance

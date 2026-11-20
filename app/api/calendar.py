@@ -36,11 +36,12 @@ class AvailabilityCheckRequest(BaseModel):
 @router.get("/events")
 async def list_calendar_events(
     date: Optional[str] = Query(default=None, description="Target date in YYYY-MM-DD format"),
-    max_results: int = Query(default=15, ge=1, le=50)
+    month: Optional[str] = Query(default=None, description="Target month in YYYY-MM format"),
+    max_results: int = Query(default=50, ge=1, le=100)
 ):
     """Retrieve scheduled calendar events via Calendar MCP."""
-    events = calendar_mcp.list_events(date_str=date, max_results=max_results)
-    return {"count": len(events), "date": date, "events": events}
+    events = calendar_mcp.list_events(date_str=date, month_str=month, max_results=max_results)
+    return {"count": len(events), "date": date, "month": month, "events": events}
 
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)

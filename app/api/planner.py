@@ -86,78 +86,154 @@ def synthesize_daily_plan(
         reverse=True
     )
 
-    # 2. Build Intelligent Timetable (Non-overlapping blocks)
+    # 2. Build Intelligent Timetable (User-editable blocks + AI task/meeting synthesis)
+    from datetime import datetime as dt
+    try:
+        weekday_name = dt.strptime(target_date, "%Y-%m-%d").strftime("%A").lower()
+    except Exception:
+        weekday_name = "monday"
+
+    outdoor_note = "Enjoy a 15-min walk outside." if weather.get("suitable_for_outdoor") else "Stay indoors away from rain/heat."
+    user_timetable = firestore_service.get_user_timetable(effective_uid)
+    custom_day_blocks = user_timetable.get("days", {}).get(weekday_name, [])
+
     timetable: List[TimetableBlock] = []
 
-    # Morning Kickoff
-    timetable.append(TimetableBlock(
-        time_range="08:30 - 09:00",
-        activity_type="break",
-        title="Morning Prep & Day Review",
-        description=f"Review goals. Weather: {weather.get('condition')}, {weather.get('temperature_c')}°C."
-    ))
+    if custom_day_blocks:
+        task_idx = 0
+        for blk in custom_day_blocks:
+            cat = blk.get("category", "focus").lower()
+            start = blk.get("start_time", "09:00")
+            end = blk.get("end_time", "10:30")
+            trange = f"{start} - {end}"
+            raw_title = blk.get("title", "Focus Session")
+            desc = ""
 
-    # Priority Task 1: Morning Deep Focus Block
-    if sorted_tasks:
-        top_task = sorted_tasks[0]
-        timetable.append(TimetableBlock(
-            time_range="09:00 - 10:30",
-            activity_type="focus",
-            title=f"Deep Work: {top_task['title']}",
-            description=f"Priority: {top_task['priority'].upper()} | Due: {top_task.get('due_date', 'N/A')}"
-        ))
+            if cat == "focus":
+                if task_idx < len(sorted_tasks):
+                    assigned_task = sorted_tasks[task_idx]
+                    task_idx += 1
+                    title = f"Deep Work: {assigned_task['title']}"
+                    desc = f"Priority: {assigned_task['priority'].upper()} | Due: {assigned_task.get('due_date', 'N/A')}"
+                else:
+                    title = raw_title if "Deep" in raw_title else f"Deep Focus: {raw_title}"
+                    desc = "Uninterrupted focus time on key technical milestones."
+            elif cat == "break":
+                title = raw_title
+                desc = f"{outdoor_note} Recharge cognitive stamina."
+            elif cat == "meeting":
+                title = raw_title
+                desc = "Meeting and collaborative sync slot."
+            elif cat == "wrapup":
+                title = raw_title
+                desc = "Mark completed tasks in Firestore, save key insights to NotesAgent."
+            else:
+                title = raw_title
+                desc = f"Scheduled {cat} slot."
+
+            timetable.append(TimetableBlock(
+                time_range=trange,
+                activity_type=cat,
+                title=title,
+                description=desc
+            ))
+
+        # Weave in scheduled calendar meetings for that date
+        for event in events:
+            start_str = event["start_time"][11:16] if len(event["start_time"]) >= 16 else "10:30"
+            end_str = event["end_time"][11:16] if len(event["end_time"]) >= 16 else "11:30"
+            event_title = f"Meeting: {event['summary']}"
+            if not any(b.title == event_title for b in timetable):
+                timetable.append(TimetableBlock(
+                    time_range=f"{start_str} - {end_str}",
+                    activity_type="meeting",
+                    title=event_title,
+                    description=f"Location: {event.get('location') or 'Virtual Meet'}"
+                ))
+
+        # Ensure at least one focus block exists if there are pending tasks
+        has_focus = any(b.activity_type == "focus" for b in timetable)
+        if not has_focus and sorted_tasks:
+            top_t = sorted_tasks[0]
+            timetable.append(TimetableBlock(
+                time_range="09:00 - 10:30",
+                activity_type="focus",
+                title=f"Deep Work: {top_t['title']}",
+                description=f"Priority: {top_t['priority'].upper()} | Due: {top_t.get('due_date', 'N/A')}"
+            ))
+        elif not has_focus:
+            timetable.append(TimetableBlock(
+                time_range="09:00 - 10:30",
+                activity_type="focus",
+                title="Deep Focus: Strategic Project Planning",
+                description="Uninterrupted focus time on key technical milestones."
+            ))
+
+        timetable.sort(key=lambda b: b.time_range[:5])
     else:
+        # Fallback default schedule
         timetable.append(TimetableBlock(
-            time_range="09:00 - 10:30",
-            activity_type="focus",
-            title="Deep Focus: Strategic Project Planning",
-            description="Uninterrupted focus time on key technical milestones."
+            time_range="08:30 - 09:00",
+            activity_type="break",
+            title="Morning Prep & Day Review",
+            description=f"Review goals. Weather: {weather.get('condition')}, {weather.get('temperature_c')}°C."
         ))
 
-    # Add Calendar Events
-    for event in events:
-        start_str = event["start_time"][11:16] if len(event["start_time"]) >= 16 else "10:30"
-        end_str = event["end_time"][11:16] if len(event["end_time"]) >= 16 else "11:30"
+        if sorted_tasks:
+            top_task = sorted_tasks[0]
+            timetable.append(TimetableBlock(
+                time_range="09:00 - 10:30",
+                activity_type="focus",
+                title=f"Deep Work: {top_task['title']}",
+                description=f"Priority: {top_task['priority'].upper()} | Due: {top_task.get('due_date', 'N/A')}"
+            ))
+        else:
+            timetable.append(TimetableBlock(
+                time_range="09:00 - 10:30",
+                activity_type="focus",
+                title="Deep Focus: Strategic Project Planning",
+                description="Uninterrupted focus time on key technical milestones."
+            ))
+
+        for event in events:
+            start_str = event["start_time"][11:16] if len(event["start_time"]) >= 16 else "10:30"
+            end_str = event["end_time"][11:16] if len(event["end_time"]) >= 16 else "11:30"
+            timetable.append(TimetableBlock(
+                time_range=f"{start_str} - {end_str}",
+                activity_type="meeting",
+                title=f"Meeting: {event['summary']}",
+                description=f"Location: {event.get('location') or 'Virtual Meet'}"
+            ))
+
         timetable.append(TimetableBlock(
-            time_range=f"{start_str} - {end_str}",
-            activity_type="meeting",
-            title=f"Meeting: {event['summary']}",
-            description=f"Location: {event.get('location') or 'Virtual Meet'}"
+            time_range="12:30 - 13:30",
+            activity_type="break",
+            title="Lunch & Mindful Reset",
+            description=f"{outdoor_note} Recharge cognitive stamina."
         ))
 
-    # Midday Re-alignment & Lunch
-    outdoor_note = "Enjoy a 15-min walk outside." if weather.get("suitable_for_outdoor") else "Stay indoors away from rain/heat."
-    timetable.append(TimetableBlock(
-        time_range="12:30 - 13:30",
-        activity_type="break",
-        title="Lunch & Mindful Reset",
-        description=f"{outdoor_note} Recharge cognitive stamina."
-    ))
+        if len(sorted_tasks) > 1:
+            second_task = sorted_tasks[1]
+            timetable.append(TimetableBlock(
+                time_range="13:30 - 15:00",
+                activity_type="focus",
+                title=f"Afternoon Sprint: {second_task['title']}",
+                description=f"Priority: {second_task['priority'].upper()} | Due: {second_task.get('due_date', 'N/A')}"
+            ))
+        else:
+            timetable.append(TimetableBlock(
+                time_range="13:30 - 15:00",
+                activity_type="focus",
+                title="Focus Block: Code Execution & Notes Review",
+                description="Execute secondary milestones and document progress."
+            ))
 
-    # Afternoon Focus: Task 2 or Backlog
-    if len(sorted_tasks) > 1:
-        second_task = sorted_tasks[1]
         timetable.append(TimetableBlock(
-            time_range="13:30 - 15:00",
-            activity_type="focus",
-            title=f"Afternoon Sprint: {second_task['title']}",
-            description=f"Priority: {second_task['priority'].upper()} | Due: {second_task.get('due_date', 'N/A')}"
+            time_range="16:30 - 17:30",
+            activity_type="wrapup",
+            title="Day Wrap-up & Task Logging",
+            description="Mark completed tasks in Firestore, save key insights to NotesAgent."
         ))
-    else:
-        timetable.append(TimetableBlock(
-            time_range="13:30 - 15:00",
-            activity_type="focus",
-            title="Focus Block: Code Execution & Notes Review",
-            description="Execute secondary milestones and document progress."
-        ))
-
-    # Late Afternoon Wrap-up & Notes
-    timetable.append(TimetableBlock(
-        time_range="16:30 - 17:30",
-        activity_type="wrapup",
-        title="Day Wrap-up & Task Logging",
-        description="Mark completed tasks in Firestore, save key insights to NotesAgent."
-    ))
 
     # Sort timetable chronologically
     timetable.sort(key=lambda b: b.time_range[:5])

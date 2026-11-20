@@ -25,6 +25,7 @@ TEST_SUITES = [
     ("Smart Day Plans — Firestore Persistence & Isolation", "tests/test_day_plans.py"),
     ("Smart Reminders — Notes, Tasks & Due Alerts", "tests/test_reminders.py"),
     ("Persistent Multi-Session Chat History", "tests/test_sessions.py"),
+    ("User Timetable & Date-Aware Calendar", "tests/test_timetable_calendar.py"),
 ]
 
 

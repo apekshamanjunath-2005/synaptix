@@ -128,18 +128,24 @@ class CalendarMCPProvider:
     # MCP TOOLS IMPLEMENTATION
     # ────────────────────────────────────────────────────────────────────────────
 
-    def list_events(self, date_str: Optional[str] = None, max_results: int = 15, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_events(
+        self,
+        date_str: Optional[str] = None,
+        month_str: Optional[str] = None,
+        max_results: int = 50,
+        user_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
-        MCP Tool: List calendar events for a specific date (defaults to today).
+        MCP Tool: List calendar events for a specific date (defaults to today) or month.
         """
-        target_date = date_str or date.today().strftime("%Y-%m-%d")
+        filter_prefix = date_str if date_str else (month_str if month_str else date.today().strftime("%Y-%m-%d"))
         uid = user_id or current_user_id.get("default_user")
         usage_tracker.record_tool_call("calendar")
 
         with self._lock:
             matched = [
                 e for e in self._events.values()
-                if e.get("start_time", "").startswith(target_date) and (
+                if e.get("start_time", "").startswith(filter_prefix) and (
                     uid == "default_user" or not e.get("user_id") or e.get("user_id") == uid
                 )
             ]

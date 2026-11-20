@@ -172,11 +172,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (targetTab === 'tasks') loadTasks();
       if (targetTab === 'notes') loadNotes();
-      if (targetTab === 'calendar') loadCalendarEvents();
+      if (targetTab === 'calendar') {
+        renderCalendarMonth(calCurrentYear, calCurrentMonth);
+        fetchMonthIndicators(calCurrentYear, calCurrentMonth);
+        selectCalendarDate(selectedCalendarDate);
+      }
       if (targetTab === 'gmail') loadDrafts();
       if (targetTab === 'planner') {
         loadWeather();
         loadTimetable();
+        loadUserTimetable();
       }
     });
   });
@@ -911,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 11. CALENDAR MCP MANAGEMENT
+  // 11. CALENDAR MCP MANAGEMENT & INTERACTIVE MONTHLY GRID
   // ══════════════════════════════════════════════════════════════════════════
   const calendarEventsContainer = document.getElementById('calendarEventsContainer');
   const createEventForm = document.getElementById('createEventForm');
@@ -920,34 +925,276 @@ document.addEventListener('DOMContentLoaded', () => {
   const conflictStatusBadge = document.getElementById('conflictStatusBadge');
   const conflictResultText = document.getElementById('conflictResultText');
 
+  // Interactive Calendar Grid Elements
+  const calCurrentMonthYear = document.getElementById('calCurrentMonthYear');
+  const calPrevMonthBtn = document.getElementById('calPrevMonthBtn');
+  const calNextMonthBtn = document.getElementById('calNextMonthBtn');
+  const calTodayBtn = document.getElementById('calTodayBtn');
+  const calMonthGrid = document.getElementById('calMonthGrid');
+  const calSelectedDateHeader = document.getElementById('calSelectedDateHeader');
+  const calSelectedDateSubtitle = document.getElementById('calSelectedDateSubtitle');
+  const calQuickAddEventBtn = document.getElementById('calQuickAddEventBtn');
+  const calEventsCount = document.getElementById('calEventsCount');
+  const calAlertsCount = document.getElementById('calAlertsCount');
+  const calTimetableCount = document.getElementById('calTimetableCount');
+  const calSelectedAlertsContainer = document.getElementById('calSelectedAlertsContainer');
+  const calSelectedTimetableContainer = document.getElementById('calSelectedTimetableContainer');
+
+  let calCurrentYear = new Date().getFullYear();
+  let calCurrentMonth = new Date().getMonth();
+  let selectedCalendarDate = new Date().toISOString().split('T')[0];
+  let calMonthIndicators = {}; // dateStr -> { events: bool, tasks: bool, reminders: bool }
+
+  function renderCalendarMonth(year, month) {
+    if (!calMonthGrid) return;
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    if (calCurrentMonthYear) {
+      calCurrentMonthYear.textContent = `${monthNames[month]} ${year}`;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    let cellsHtml = '';
+
+    // Prev month padding cells
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dayNum = daysInPrevMonth - i;
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
+      const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      cellsHtml += renderDayCell(dateStr, dayNum, true, todayStr);
+    }
+
+    // Current month cells
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      cellsHtml += renderDayCell(dateStr, day, false, todayStr);
+    }
+
+    // Next month padding cells to complete 35 or 42 grid cells
+    const totalCells = firstDayIndex + daysInMonth;
+    const remaining = totalCells > 35 ? 42 - totalCells : 35 - totalCells;
+    for (let nextDay = 1; nextDay <= remaining; nextDay++) {
+      const nextMonth = month === 11 ? 0 : month + 1;
+      const nextYear = month === 11 ? year + 1 : year;
+      const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+      cellsHtml += renderDayCell(dateStr, nextDay, true, todayStr);
+    }
+
+    calMonthGrid.innerHTML = cellsHtml;
+
+    // Attach click events
+    calMonthGrid.querySelectorAll('.cal-day-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const dStr = cell.getAttribute('data-date');
+        if (dStr) selectCalendarDate(dStr);
+      });
+    });
+  }
+
+  function renderDayCell(dateStr, dayNum, isOtherMonth, todayStr) {
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === selectedCalendarDate;
+    const classes = ['cal-day-cell'];
+    if (isOtherMonth) classes.push('other-month');
+    if (isToday) classes.push('is-today');
+    if (isSelected) classes.push('is-selected');
+
+    const ind = calMonthIndicators[dateStr] || {};
+    let dotsHtml = '';
+    if (ind.events) dotsHtml += '<span class="cal-dot cal-dot-event" title="Calendar Event"></span>';
+    if (ind.tasks) dotsHtml += '<span class="cal-dot cal-dot-task" title="Due Task"></span>';
+    if (ind.reminders) dotsHtml += '<span class="cal-dot cal-dot-reminder" title="Due Reminder"></span>';
+
+    return `
+      <div class="${classes.join(' ')}" data-date="${dateStr}">
+        <span class="cal-day-num">${dayNum}</span>
+        <div class="cal-day-dots">${dotsHtml}</div>
+      </div>
+    `;
+  }
+
+  async function fetchMonthIndicators(year, month) {
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+    try {
+      const [eventsResp, tasksResp, remResp] = await Promise.all([
+        fetch(`/api/calendar/events?month=${monthPrefix}`).then(r => r.json()).catch(() => ({ events: [] })),
+        fetch('/api/tasks').then(r => r.json()).catch(() => ({ tasks: [] })),
+        fetch('/api/reminders').then(r => r.json()).catch(() => ({ reminders: [] }))
+      ]);
+
+      calMonthIndicators = {};
+
+      (eventsResp.events || []).forEach(e => {
+        if (e.start_time) {
+          const ds = e.start_time.split('T')[0];
+          if (!calMonthIndicators[ds]) calMonthIndicators[ds] = {};
+          calMonthIndicators[ds].events = true;
+        }
+      });
+
+      (tasksResp.tasks || []).forEach(t => {
+        if (t.due_date && t.status !== 'completed') {
+          const ds = t.due_date;
+          if (!calMonthIndicators[ds]) calMonthIndicators[ds] = {};
+          calMonthIndicators[ds].tasks = true;
+        }
+      });
+
+      (remResp.reminders || []).forEach(r => {
+        if (r.remind_at && r.status !== 'dismissed') {
+          const ds = r.remind_at.split('T')[0];
+          if (!calMonthIndicators[ds]) calMonthIndicators[ds] = {};
+          calMonthIndicators[ds].reminders = true;
+        }
+      });
+
+      renderCalendarMonth(year, month);
+    } catch (e) {
+      console.warn('Could not load calendar indicators:', e);
+    }
+  }
+
+  function selectCalendarDate(dateStr) {
+    selectedCalendarDate = dateStr;
+    const d = new Date(dateStr + 'T00:00:00');
+    const formattedDate = d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    if (calSelectedDateHeader) calSelectedDateHeader.textContent = formattedDate;
+
+    if (calendarFilterDate) calendarFilterDate.value = dateStr;
+    const startInp = document.getElementById('newEventStart');
+    const endInp = document.getElementById('newEventEnd');
+    if (startInp) startInp.value = `${dateStr}T10:00`;
+    if (endInp) endInp.value = `${dateStr}T11:00`;
+    const chkStart = document.getElementById('checkStart');
+    const chkEnd = document.getElementById('checkEnd');
+    if (chkStart) chkStart.value = `${dateStr}T10:00`;
+    if (chkEnd) chkEnd.value = `${dateStr}T11:00`;
+
+    document.querySelectorAll('.cal-day-cell').forEach(c => {
+      if (c.getAttribute('data-date') === dateStr) {
+        c.classList.add('is-selected');
+      } else {
+        c.classList.remove('is-selected');
+      }
+    });
+
+    loadCalendarEvents(dateStr);
+    loadSelectedDateAlerts(dateStr);
+    loadSelectedDateTimetable(dateStr);
+  }
+
+  async function loadSelectedDateAlerts(dateStr) {
+    if (!calSelectedAlertsContainer) return;
+    try {
+      const [tasksResp, remResp] = await Promise.all([
+        fetch('/api/tasks').then(r => r.json()).catch(() => ({ tasks: [] })),
+        fetch('/api/reminders').then(r => r.json()).catch(() => ({ reminders: [] }))
+      ]);
+
+      const tasks = (tasksResp.tasks || []).filter(t => t.due_date && t.due_date === dateStr);
+      const reminders = (remResp.reminders || []).filter(r => r.remind_at && r.remind_at.startsWith(dateStr));
+
+      if (calAlertsCount) calAlertsCount.textContent = tasks.length + reminders.length;
+
+      if (tasks.length === 0 && reminders.length === 0) {
+        calSelectedAlertsContainer.innerHTML = '<p class="empty-state" style="padding:10px 0;">No tasks or reminders due on this date.</p>';
+        return;
+      }
+
+      let html = '';
+      tasks.forEach(t => {
+        html += `
+          <div style="padding:8px 10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-size:0.82rem;">
+            <div style="font-weight:600;color:#6ee7b7;">✓ Task: ${escapeHtml(t.title)}</div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">Priority: ${escapeHtml(t.priority.toUpperCase())} • Status: ${escapeHtml(t.status)}</div>
+          </div>
+        `;
+      });
+      reminders.forEach(r => {
+        const timeStr = new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        html += `
+          <div style="padding:8px 10px;background:rgba(255,107,61,0.08);border:1px solid rgba(255,107,61,0.25);border-radius:8px;font-size:0.82rem;">
+            <div style="font-weight:600;color:#fdba74;">⏰ Reminder: ${escapeHtml(r.title)}</div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px;">At: ${timeStr} • Status: ${escapeHtml(r.status)}</div>
+          </div>
+        `;
+      });
+      calSelectedAlertsContainer.innerHTML = html;
+    } catch (e) {
+      calSelectedAlertsContainer.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Error loading alerts: ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
+  async function loadSelectedDateTimetable(dateStr) {
+    if (!calSelectedTimetableContainer) return;
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const weekday = dayNames[d.getDay()];
+
+      const resp = await fetch(`/api/timetable?day=${weekday}`);
+      const data = await resp.json();
+      const blocks = data.blocks || [];
+
+      if (calTimetableCount) calTimetableCount.textContent = blocks.length;
+
+      if (blocks.length === 0) {
+        calSelectedTimetableContainer.innerHTML = '<p class="empty-state" style="padding:10px 0;">No timetable blocks scheduled for this weekday.</p>';
+        return;
+      }
+
+      calSelectedTimetableContainer.innerHTML = blocks.map(b => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;font-size:0.8rem;">
+          <div>
+            <strong style="color:#fff;">${escapeHtml(b.title)}</strong>
+            <div style="color:#93c5fd;font-family:monospace;font-size:0.74rem;">${escapeHtml(b.start_time)} - ${escapeHtml(b.end_time)}</div>
+          </div>
+          <span class="tt-cat-badge">${escapeHtml((b.category || 'focus').toUpperCase())}</span>
+        </div>
+      `).join('');
+    } catch (e) {
+      calSelectedTimetableContainer.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Error: ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
   async function loadCalendarEvents(dateStr = '') {
     if (!calendarEventsContainer) return;
+    const effectiveDate = dateStr || selectedCalendarDate || '';
     try {
-      const url = dateStr ? `/api/calendar/events?date=${encodeURIComponent(dateStr)}` : '/api/calendar/events';
+      const url = effectiveDate ? `/api/calendar/events?date=${encodeURIComponent(effectiveDate)}` : '/api/calendar/events';
       const resp = await fetch(url);
       const data = await resp.json();
       const events = data.events || [];
 
+      if (calEventsCount) calEventsCount.textContent = events.length;
+
       if (events.length === 0) {
-        calendarEventsContainer.innerHTML = '<p class="empty-state">No events scheduled.</p>';
+        calendarEventsContainer.innerHTML = '<p class="empty-state" style="padding:10px 0;">No events scheduled for this date.</p>';
         return;
       }
 
       calendarEventsContainer.innerHTML = events.map((e) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;">
           <div>
-            <div style="font-weight:600;font-size:0.92rem;color:#fff;">
-              ${e.summary}
+            <div style="font-weight:600;font-size:0.88rem;color:#fff;">
+              ${escapeHtml(e.summary)}
             </div>
-            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">
-              ⏱️ ${e.start_time.replace('T', ' ')} → ${e.end_time.replace('T', ' ')} ${e.location ? `• 📍 ${e.location}` : ''}
+            <div style="font-size:0.74rem;color:var(--text-secondary);margin-top:2px;">
+              ⏱️ ${e.start_time.replace('T', ' ')} → ${e.end_time.replace('T', ' ')} ${e.location ? `• 📍 ${escapeHtml(e.location)}` : ''}
             </div>
           </div>
-          <button onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:#f87171;">✕ Cancel</button>
+          <button onclick="deleteCalendarEventItem('${e.id}')" class="secondary-btn btn-sm" style="color:#f87171;padding:3px 7px;">✕ Cancel</button>
         </div>
       `).join('');
     } catch (err) {
-      calendarEventsContainer.innerHTML = `<p style="color:#ef4444;">Failed to load events: ${err.message}</p>`;
+      calendarEventsContainer.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Failed to load events: ${escapeHtml(err.message)}</p>`;
     }
   }
 
@@ -956,7 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE' });
       showToast('Event cancelled', 'info');
-      loadCalendarEvents();
+      loadCalendarEvents(selectedCalendarDate);
+      fetchMonthIndicators(calCurrentYear, calCurrentMonth);
     } catch (e) {
       showToast('Error deleting event: ' + e.message, 'error');
     }
@@ -980,7 +1228,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('newEventSummary').value = '';
         document.getElementById('newEventLocation').value = '';
         showToast('Event booked on Google Calendar!', 'success');
-        loadCalendarEvents();
+        loadCalendarEvents(selectedCalendarDate);
+        fetchMonthIndicators(calCurrentYear, calCurrentMonth);
       } catch (err) {
         showToast('Failed to schedule event: ' + err.message, 'error');
       }
@@ -1004,12 +1253,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.available) {
           conflictStatusBadge.textContent = 'Free / Available';
           conflictStatusBadge.className = 'status-chip success';
-          conflictResultText.innerHTML = `Timeslot is clear from <strong>${start}</strong> to <strong>${end}</strong>.`;
+          conflictResultText.innerHTML = `Timeslot is clear from <strong>${escapeHtml(start)}</strong> to <strong>${escapeHtml(end)}</strong>.`;
         } else {
           conflictStatusBadge.textContent = `${data.conflicts_count} Conflict(s)`;
           conflictStatusBadge.className = 'status-chip';
           conflictStatusBadge.style.color = '#f87171';
-          const confTitles = data.conflicting_events.map((c) => `• "${c.summary}"`).join('<br>');
+          const confTitles = data.conflicting_events.map((c) => `• "${escapeHtml(c.summary)}"`).join('<br>');
           conflictResultText.innerHTML = `Overlaps with:<br>${confTitles}`;
         }
       } catch (err) {
@@ -1020,7 +1269,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (calendarFilterDate) {
     calendarFilterDate.addEventListener('change', (e) => {
-      loadCalendarEvents(e.target.value);
+      if (e.target.value) selectCalendarDate(e.target.value);
+    });
+  }
+
+  if (calPrevMonthBtn) {
+    calPrevMonthBtn.addEventListener('click', () => {
+      calCurrentMonth--;
+      if (calCurrentMonth < 0) {
+        calCurrentMonth = 11;
+        calCurrentYear--;
+      }
+      renderCalendarMonth(calCurrentYear, calCurrentMonth);
+      fetchMonthIndicators(calCurrentYear, calCurrentMonth);
+    });
+  }
+
+  if (calNextMonthBtn) {
+    calNextMonthBtn.addEventListener('click', () => {
+      calCurrentMonth++;
+      if (calCurrentMonth > 11) {
+        calCurrentMonth = 0;
+        calCurrentYear++;
+      }
+      renderCalendarMonth(calCurrentYear, calCurrentMonth);
+      fetchMonthIndicators(calCurrentYear, calCurrentMonth);
+    });
+  }
+
+  if (calTodayBtn) {
+    calTodayBtn.addEventListener('click', () => {
+      const now = new Date();
+      calCurrentYear = now.getFullYear();
+      calCurrentMonth = now.getMonth();
+      const todayStr = now.toISOString().split('T')[0];
+      renderCalendarMonth(calCurrentYear, calCurrentMonth);
+      fetchMonthIndicators(calCurrentYear, calCurrentMonth);
+      selectCalendarDate(todayStr);
+    });
+  }
+
+  if (calQuickAddEventBtn) {
+    calQuickAddEventBtn.addEventListener('click', () => {
+      const target = document.getElementById('scheduleEventCard');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' });
+        const summaryInp = document.getElementById('newEventSummary');
+        if (summaryInp) summaryInp.focus();
+      }
     });
   }
 
@@ -1381,6 +1677,221 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // 14B. USER-EDITABLE TIMETABLE & WEEKLY REPLICATION
+  // ══════════════════════════════════════════════════════════════════════════
+  const ttDaysBar = document.getElementById('ttDaysBar');
+  const userTimetableBlocksList = document.getElementById('userTimetableBlocksList');
+  const addTimeBlockForm = document.getElementById('addTimeBlockForm');
+  const ttToggleAddFormBtn = document.getElementById('ttToggleAddFormBtn');
+  const ttCancelAddBtn = document.getElementById('ttCancelAddBtn');
+  const ttApplyWeekBtn = document.getElementById('ttApplyWeekBtn');
+  const ttApplyWeekdaysBtn = document.getElementById('ttApplyWeekdaysBtn');
+
+  let activeTimetableDay = 'monday';
+  let userWeeklyTimetableData = null;
+
+  async function loadUserTimetable(dayToSelect = null) {
+    if (!userTimetableBlocksList) return;
+    try {
+      const resp = await fetch('/api/timetable');
+      if (!resp.ok) throw new Error('Could not fetch timetable');
+      const data = await resp.json();
+      userWeeklyTimetableData = data.days || {};
+
+      if (dayToSelect) {
+        activeTimetableDay = dayToSelect.toLowerCase();
+      } else if (!activeTimetableDay || activeTimetableDay === 'monday') {
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const todayDay = dayNames[new Date().getDay()];
+        if (dayToSelect === null) activeTimetableDay = todayDay;
+      }
+
+      // Update active day pill
+      if (ttDaysBar) {
+        ttDaysBar.querySelectorAll('.tt-day-pill').forEach((pill) => {
+          if (pill.getAttribute('data-day') === activeTimetableDay) {
+            pill.classList.add('active');
+          } else {
+            pill.classList.remove('active');
+          }
+        });
+      }
+
+      renderUserDayBlocks(userWeeklyTimetableData[activeTimetableDay] || []);
+    } catch (err) {
+      userTimetableBlocksList.innerHTML = `<p style="color:#ef4444;font-size:0.8rem;">Error loading timetable: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderUserDayBlocks(blocks) {
+    if (!userTimetableBlocksList) return;
+    if (!blocks || blocks.length === 0) {
+      userTimetableBlocksList.innerHTML = `
+        <div class="empty-state" style="padding:18px 0;">
+          <p>No time blocks scheduled for ${activeTimetableDay.toUpperCase()}.</p>
+          <button type="button" class="secondary-btn btn-sm" onclick="document.getElementById('ttToggleAddFormBtn').click()" style="margin-top:8px;">+ Add First Block</button>
+        </div>
+      `;
+      return;
+    }
+
+    userTimetableBlocksList.innerHTML = blocks.map((b) => {
+      const cat = (b.category || 'focus').toLowerCase();
+      return `
+        <div class="tt-block-item cat-${cat}">
+          <div class="tt-block-left">
+            <span class="tt-block-time">${escapeHtml(b.start_time)} - ${escapeHtml(b.end_time)}</span>
+            <div>
+              <div class="tt-block-title">${escapeHtml(b.title)}</div>
+            </div>
+          </div>
+          <div class="tt-block-meta">
+            <span class="tt-cat-badge">${cat.toUpperCase()}</span>
+            <button type="button" class="tt-del-btn" onclick="deleteUserBlock('${activeTimetableDay}', '${b.id}')" title="Delete block">✕ Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  window.deleteUserBlock = async (day, blockId) => {
+    if (!confirm('Remove this time block?')) return;
+    try {
+      const resp = await fetch(`/api/timetable/${encodeURIComponent(day)}/${encodeURIComponent(blockId)}`, {
+        method: 'DELETE'
+      });
+      if (!resp.ok) throw new Error('Deletion failed');
+      showToast('Time block removed', 'info');
+      await loadUserTimetable(day);
+    } catch (e) {
+      showToast('Error removing block: ' + e.message, 'error');
+    }
+  };
+
+  if (ttDaysBar) {
+    ttDaysBar.querySelectorAll('.tt-day-pill').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const day = pill.getAttribute('data-day');
+        if (day) {
+          activeTimetableDay = day;
+          ttDaysBar.querySelectorAll('.tt-day-pill').forEach((p) => p.classList.remove('active'));
+          pill.classList.add('active');
+          if (userWeeklyTimetableData) {
+            renderUserDayBlocks(userWeeklyTimetableData[activeTimetableDay] || []);
+          } else {
+            loadUserTimetable(day);
+          }
+        }
+      });
+    });
+  }
+
+  if (ttToggleAddFormBtn) {
+    ttToggleAddFormBtn.addEventListener('click', () => {
+      if (addTimeBlockForm) {
+        const isHidden = addTimeBlockForm.style.display === 'none';
+        addTimeBlockForm.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+          const s = document.getElementById('ttNewStart');
+          if (s) s.focus();
+        }
+      }
+    });
+  }
+
+  if (ttCancelAddBtn) {
+    ttCancelAddBtn.addEventListener('click', () => {
+      if (addTimeBlockForm) addTimeBlockForm.style.display = 'none';
+    });
+  }
+
+  if (addTimeBlockForm) {
+    addTimeBlockForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('ttNewStart').value;
+      const end = document.getElementById('ttNewEnd').value;
+      const title = document.getElementById('ttNewTitle').value.trim();
+      const cat = document.getElementById('ttNewCategory').value;
+
+      if (!start || !end || !title) return;
+
+      const currentBlocks = (userWeeklyTimetableData && userWeeklyTimetableData[activeTimetableDay]) ? [...userWeeklyTimetableData[activeTimetableDay]] : [];
+      currentBlocks.push({
+        start_time: start,
+        end_time: end,
+        title: title,
+        category: cat
+      });
+
+      try {
+        const resp = await fetch('/api/timetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            day: activeTimetableDay,
+            blocks: currentBlocks,
+            apply_to_week: false
+          })
+        });
+        if (!resp.ok) throw new Error('Failed to save time block');
+        showToast(`Time block added to ${activeTimetableDay.toUpperCase()}!`, 'success');
+        addTimeBlockForm.reset();
+        addTimeBlockForm.style.display = 'none';
+        await loadUserTimetable(activeTimetableDay);
+      } catch (err) {
+        showToast('Error saving block: ' + err.message, 'error');
+      }
+    });
+  }
+
+  if (ttApplyWeekBtn) {
+    ttApplyWeekBtn.addEventListener('click', async () => {
+      if (!confirm(`Copy ${activeTimetableDay.toUpperCase()}'s time blocks across all 7 days of the week?`)) return;
+      const currentBlocks = (userWeeklyTimetableData && userWeeklyTimetableData[activeTimetableDay]) || [];
+      try {
+        const resp = await fetch('/api/timetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            day: activeTimetableDay,
+            blocks: currentBlocks,
+            apply_to_week: true
+          })
+        });
+        if (!resp.ok) throw new Error('Week replication failed');
+        showToast('Timetable applied across entire week!', 'success');
+        await loadUserTimetable(activeTimetableDay);
+      } catch (e) {
+        showToast('Error replicating week: ' + e.message, 'error');
+      }
+    });
+  }
+
+  if (ttApplyWeekdaysBtn) {
+    ttApplyWeekdaysBtn.addEventListener('click', async () => {
+      if (!confirm(`Copy ${activeTimetableDay.toUpperCase()}'s schedule to all weekdays (Mon–Fri)?`)) return;
+      const currentBlocks = (userWeeklyTimetableData && userWeeklyTimetableData[activeTimetableDay]) || [];
+      try {
+        const resp = await fetch('/api/timetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            day: activeTimetableDay,
+            blocks: currentBlocks,
+            apply_to_week: false,
+            days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+          })
+        });
+        if (!resp.ok) throw new Error('Weekday replication failed');
+        showToast('Timetable applied to Monday–Friday!', 'success');
+        await loadUserTimetable(activeTimetableDay);
+      } catch (e) {
+        showToast('Error replicating weekdays: ' + e.message, 'error');
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // 15. MULTI-USER GOOGLE AUTHENTICATION & PROFILE
   // ══════════════════════════════════════════════════════════════════════════
   const loginModal = document.getElementById('loginModal');
@@ -1438,9 +1949,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Preloads
-  loadCalendarEvents();
+  renderCalendarMonth(calCurrentYear, calCurrentMonth);
+  fetchMonthIndicators(calCurrentYear, calCurrentMonth);
+  selectCalendarDate(selectedCalendarDate);
   loadWeather();
   loadTimetable();
+  loadUserTimetable();
   loadTasks();
   loadNotes();
   loadDrafts();

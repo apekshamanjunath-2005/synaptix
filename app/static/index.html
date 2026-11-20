@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=2.4">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2.5">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -325,7 +325,86 @@
       <!-- TAB 4: CALENDAR VIEW -->
       <section class="tab-pane" id="tab-calendar">
         <div class="panel-content-max">
-          <div class="dark-card">
+          <!-- Interactive Monthly Calendar Grid Card -->
+          <div class="dark-card cal-grid-card">
+            <div class="card-header flex-between wrap-header">
+              <div class="cal-title-wrap">
+                <h3 class="card-title" id="calCurrentMonthYear">Calendar</h3>
+                <p class="card-subtitle">Select any date to view Google Calendar events, due tasks, reminders, and daily timetable.</p>
+              </div>
+              <div class="cal-actions">
+                <button type="button" id="calPrevMonthBtn" class="cal-nav-btn" title="Previous Month">‹</button>
+                <button type="button" id="calTodayBtn" class="cal-nav-btn cal-today-pill">Today</button>
+                <button type="button" id="calNextMonthBtn" class="cal-nav-btn" title="Next Month">›</button>
+              </div>
+            </div>
+
+            <!-- Indicator Legend -->
+            <div class="cal-legend-bar">
+              <div class="cal-legend-item"><span class="cal-legend-dot dot-event"></span> Events</div>
+              <div class="cal-legend-item"><span class="cal-legend-dot dot-task"></span> Tasks</div>
+              <div class="cal-legend-item"><span class="cal-legend-dot dot-reminder"></span> Reminders</div>
+            </div>
+
+            <!-- Weekday Headers -->
+            <div class="cal-weekdays-grid">
+              <div>Sun</div>
+              <div>Mon</div>
+              <div>Tue</div>
+              <div>Wed</div>
+              <div>Thu</div>
+              <div>Fri</div>
+              <div>Sat</div>
+            </div>
+
+            <!-- Dynamic 35-42 Date Cells -->
+            <div id="calMonthGrid" class="cal-month-grid">
+              <div class="cal-loading-placeholder">Loading calendar grid...</div>
+            </div>
+          </div>
+
+          <!-- Selected Date Schedule & Detail View -->
+          <div class="dark-card cal-detail-card">
+            <div class="card-header flex-between wrap-header">
+              <div>
+                <h3 class="card-title" id="calSelectedDateHeader">Selected Date Schedule</h3>
+                <p class="card-subtitle" id="calSelectedDateSubtitle">Daily commitments, tasks, reminders & timetable</p>
+              </div>
+              <div class="flex-align-center gap-8">
+                <input type="date" id="calendarFilterDate" class="dark-input date-filter" style="display:none;" aria-hidden="true">
+                <button type="button" id="calQuickAddEventBtn" class="primary-btn btn-sm">+ Add Event for this Date</button>
+              </div>
+            </div>
+
+            <div class="cal-detail-columns">
+              <!-- Events column -->
+              <div class="cal-subcol">
+                <div class="cal-subcol-title">📅 Calendar Events (<span id="calEventsCount">0</span>)</div>
+                <div id="calendarEventsContainer" class="items-list">
+                  <p class="empty-state">Loading calendar events...</p>
+                </div>
+              </div>
+
+              <!-- Tasks & Reminders column -->
+              <div class="cal-subcol">
+                <div class="cal-subcol-title">⏰ Tasks & Reminders (<span id="calAlertsCount">0</span>)</div>
+                <div id="calSelectedAlertsContainer" class="items-list">
+                  <p class="empty-state">No tasks or reminders due on this date.</p>
+                </div>
+              </div>
+
+              <!-- Weekday Timetable blocks column -->
+              <div class="cal-subcol">
+                <div class="cal-subcol-title">⏱️ Saved Timetable (<span id="calTimetableCount">0</span>)</div>
+                <div id="calSelectedTimetableContainer" class="items-list">
+                  <p class="empty-state">Loading weekday timetable...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule Calendar Event Card -->
+          <div class="dark-card" id="scheduleEventCard">
             <div class="card-header">
               <h3 class="card-title">Schedule Calendar Event</h3>
               <span class="card-pill">Calendar MCP</span>
@@ -339,6 +418,7 @@
             </form>
           </div>
 
+          <!-- Timeslot Conflict Checker Card -->
           <div class="dark-card conflict-checker-card">
             <div class="card-header flex-between">
               <h3 class="card-title">Timeslot Conflict Checker</h3>
@@ -350,16 +430,6 @@
               <button type="submit" class="secondary-btn">Check Availability</button>
             </form>
             <div id="conflictResultText" class="conflict-result"></div>
-          </div>
-
-          <div class="dark-card">
-            <div class="card-header flex-between">
-              <h3 class="card-title">Upcoming Commitments</h3>
-              <input type="date" id="calendarFilterDate" class="dark-input date-filter">
-            </div>
-            <div id="calendarEventsContainer" class="items-list">
-              <p class="empty-state">Loading calendar events...</p>
-            </div>
           </div>
         </div>
       </section>
@@ -478,10 +548,67 @@
             </div>
           </div>
 
+          <!-- User-Editable Weekly Timetable Card -->
+          <div class="dark-card user-timetable-card">
+            <div class="card-header flex-between wrap-header">
+              <div>
+                <h3 class="card-title">User-Editable Daily & Weekly Timetable</h3>
+                <p class="card-subtitle">Define your recurring daily schedule. The AI Day Planner respects your blocks and fills free slots.</p>
+              </div>
+              <div class="btn-group">
+                <button type="button" id="ttApplyWeekBtn" class="secondary-btn btn-sm" title="Replicate current day's blocks to all 7 days">Apply to Entire Week</button>
+                <button type="button" id="ttApplyWeekdaysBtn" class="secondary-btn btn-sm" title="Replicate current day's blocks to Mon–Fri">Apply to Mon–Fri</button>
+                <button type="button" id="ttToggleAddFormBtn" class="primary-btn btn-sm">+ Add Time Block</button>
+              </div>
+            </div>
+
+            <!-- Day Selector Bar -->
+            <div class="tt-days-bar" id="ttDaysBar">
+              <button type="button" class="tt-day-pill active" data-day="monday">Mon</button>
+              <button type="button" class="tt-day-pill" data-day="tuesday">Tue</button>
+              <button type="button" class="tt-day-pill" data-day="wednesday">Wed</button>
+              <button type="button" class="tt-day-pill" data-day="thursday">Thu</button>
+              <button type="button" class="tt-day-pill" data-day="friday">Fri</button>
+              <button type="button" class="tt-day-pill" data-day="saturday">Sat</button>
+              <button type="button" class="tt-day-pill" data-day="sunday">Sun</button>
+            </div>
+
+            <!-- Add Block Inline Form -->
+            <form id="addTimeBlockForm" class="tt-inline-form" style="display: none;">
+              <div class="tt-form-inner">
+                <div class="tt-form-fields">
+                  <input type="time" id="ttNewStart" required class="dark-input tt-time-input">
+                  <span class="tt-time-sep">→</span>
+                  <input type="time" id="ttNewEnd" required class="dark-input tt-time-input">
+                  <input type="text" id="ttNewTitle" placeholder="Activity name (e.g. Deep Work, Standup, Lunch)" required class="dark-input tt-title-input">
+                  <select id="ttNewCategory" class="mode-select tt-cat-select">
+                    <option value="focus">Focus</option>
+                    <option value="meeting">Meeting</option>
+                    <option value="break">Break</option>
+                    <option value="wrapup">Wrap-up</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+                <div class="tt-form-buttons">
+                  <button type="submit" class="primary-btn btn-sm">Save Block</button>
+                  <button type="button" id="ttCancelAddBtn" class="secondary-btn btn-sm">Cancel</button>
+                </div>
+              </div>
+            </form>
+
+            <!-- User's Saved Blocks for Active Day -->
+            <div id="userTimetableBlocksList" class="items-list tt-blocks-list">
+              <p class="empty-state">Loading user timetable blocks...</p>
+            </div>
+          </div>
+
           <!-- Synthesized Daily Timetable -->
           <div class="dark-card">
             <div class="card-header flex-between">
-              <h3 class="card-title">Daily Timetable & Focus Blocks</h3>
+              <div>
+                <h3 class="card-title">AI Optimized Day Plan & Free Slot Suggestions</h3>
+                <p class="card-subtitle">Synthesized around your timetable and Google Calendar commitments</p>
+              </div>
               <span id="timetableStatusBadge" class="card-pill">Synthesized by SmartDayPlannerAgent</span>
             </div>
             <div id="timetableContainer" class="items-list">
@@ -636,6 +763,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=2.4"></script>
+  <script src="/static/js/app.js?v=2.5"></script>
 </body>
 </html>
