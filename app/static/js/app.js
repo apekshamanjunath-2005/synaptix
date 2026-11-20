@@ -193,6 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTabDesc.textContent = tabMetadata[targetTab].desc;
       }
 
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+
       if (window.innerWidth <= 768 && sidebar) {
         sidebar.classList.remove('mobile-open');
       }
