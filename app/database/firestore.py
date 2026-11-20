@@ -104,7 +104,7 @@ class LocalFirestoreCollection:
 class LocalFirestoreClient:
     def __init__(self):
         self._lock = threading.Lock()
-        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}, "reminders": {}}
+        self._storage: Dict[str, Dict[str, Any]] = {"tasks": {}, "notes": {}, "day_plans": {}, "reminders": {}, "sessions": {}}
         self._load()
 
     def _load(self):
@@ -116,6 +116,12 @@ class LocalFirestoreClient:
                             len(self._storage.get("tasks", {})), len(self._storage.get("notes", {})), len(self._storage.get("day_plans", {})), len(self._storage.get("reminders", {})))
             except Exception as e:
                 logger.warning("Could not read local Firestore cache: %s", e)
+
+    def _persist(self):
+        try:
+            LOCAL_DB_FILE.write_text(json.dumps(self._storage, indent=2), encoding="utf-8")
+        except Exception as e:
+            logger.warning("Failed to persist local Firestore to disk: %s", e)
 
     def collection(self, name: str) -> LocalFirestoreCollection:
         return LocalFirestoreCollection(name, self._storage, self._lock)
@@ -133,7 +139,13 @@ class FirestoreService:
         self._init_connection()
 
     def _init_connection(self):
-        """Connect to Live Firebase if credentials exist; otherwise use Local Firestore."""
+        """Connect to Live Firebase if credentials exist and not MOCK_MODE; otherwise use Local Firestore."""
+        if self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
+            self.client = LocalFirestoreClient()
+            self.is_live_firebase = False
+            logger.info("⚡ Running Local Firestore Adapter (MOCK_MODE=true, ₹0 budget safe)")
+            return
+
         import firebase_admin
         from firebase_admin import credentials, firestore
 
@@ -680,6 +692,202 @@ class FirestoreService:
         doc_ref.delete()
         usage_tracker.record_tool_call("firestore")
         logger.info("Deleted reminder %s for user %s", reminder_id, effective_uid)
+        return True
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # SESSIONS & CHAT HISTORY REPOSITORY (Multi-Session Persistence)
+    # ────────────────────────────────────────────────────────────────────────────
+
+    def create_or_get_session(
+        self,
+        user_id: str,
+        session_id: Optional[str] = None,
+        title: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new chat session or retrieve an existing one scoped to user_id.
+        Doc fields: session_id, user_id, title (max ~40 chars), created_at, updated_at.
+        """
+        effective_uid = user_id or "default_user"
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if session_id:
+            doc = self.client.collection("sessions").document(session_id).get()
+            if doc and doc.exists:
+                data = doc.to_dict()
+                if data and data.get("user_id") == effective_uid:
+                    return data
+
+        sid = session_id or f"sess-{uuid.uuid4().hex[:8]}"
+        clean_title = "New Chat"
+        if title:
+            clean_title = title.strip()[:40]
+            if len(title.strip()) > 40:
+                clean_title += "..."
+
+        session_payload = {
+            "session_id": sid,
+            "user_id": effective_uid,
+            "title": clean_title,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        self.client.collection("sessions").document(sid).set(session_payload)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Chat session initialized: %s ('%s') for user %s", sid, clean_title, effective_uid)
+        return session_payload
+
+    def get_session(
+        self,
+        session_id: str,
+        user_id: str = "default_user"
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch session metadata by session_id, ensuring user isolation."""
+        effective_uid = user_id or "default_user"
+        doc = self.client.collection("sessions").document(session_id).get()
+        if not doc or not doc.exists:
+            return None
+        data = doc.to_dict()
+        if not data or data.get("user_id") != effective_uid:
+            return None
+        usage_tracker.record_tool_call("firestore")
+        return data
+
+    def list_sessions(
+        self,
+        user_id: str = "default_user",
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """List chat sessions for user ordered by updated_at descending."""
+        effective_uid = user_id or "default_user"
+        docs = self.client.collection("sessions").stream()
+        sessions = []
+        for d in docs:
+            data = d.to_dict()
+            if data and data.get("user_id") == effective_uid:
+                sessions.append(data)
+
+        usage_tracker.record_tool_call("firestore")
+        sessions.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
+        return sessions[:limit]
+
+    def add_message_to_session(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        user_id: str = "default_user"
+    ) -> Dict[str, Any]:
+        """
+        Store a message in subcollection sessions/{session_id}/messages.
+        Updates session updated_at and auto-generates title if initial user message.
+        """
+        effective_uid = user_id or "default_user"
+        now_iso = datetime.now(timezone.utc).isoformat()
+        session = self.get_session(session_id, user_id=effective_uid)
+
+        if not session:
+            auto_title = content.strip()[:40]
+            if len(content.strip()) > 40:
+                auto_title += "..."
+            session = self.create_or_get_session(
+                user_id=effective_uid,
+                session_id=session_id,
+                title=auto_title or "New Chat"
+            )
+        else:
+            # Update session updated_at, and set title if currently generic
+            updates = {"updated_at": now_iso}
+            if session.get("title") in ("New Chat", "New Conversation") and role == "user":
+                auto_title = content.strip()[:40]
+                if len(content.strip()) > 40:
+                    auto_title += "..."
+                updates["title"] = auto_title
+            
+            session_ref = self.client.collection("sessions").document(session_id)
+            if hasattr(session_ref, "update"):
+                try:
+                    session_ref.update(updates)
+                except Exception:
+                    session.update(updates)
+                    session_ref.set(session)
+            else:
+                session.update(updates)
+                session_ref.set(session)
+
+        msg_id = f"msg-{uuid.uuid4().hex[:8]}"
+        msg_payload = {
+            "id": msg_id,
+            "session_id": session_id,
+            "role": role,  # "user" | "assistant"
+            "content": content,
+            "timestamp": now_iso,
+        }
+
+        self.client.collection("sessions").document(session_id).collection("messages").document(msg_id).set(msg_payload)
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Persisted %s message in session %s (%s)", role, session_id, msg_id)
+        return msg_payload
+
+    def get_session_messages(
+        self,
+        session_id: str,
+        limit: Optional[int] = None,
+        user_id: str = "default_user"
+    ) -> List[Dict[str, Any]]:
+        """
+        Load all or last N messages for a session from subcollection sessions/{session_id}/messages.
+        Ordered by timestamp ascending.
+        """
+        effective_uid = user_id or "default_user"
+        session = self.get_session(session_id, user_id=effective_uid)
+        if not session:
+            return []
+
+        docs = self.client.collection("sessions").document(session_id).collection("messages").stream()
+        messages = [d.to_dict() for d in docs if d.to_dict()]
+        messages.sort(key=lambda m: m.get("timestamp", ""))
+        usage_tracker.record_tool_call("firestore")
+
+        if limit and len(messages) > limit:
+            return messages[-limit:]
+        return messages
+
+    def delete_session(
+        self,
+        session_id: str,
+        user_id: str = "default_user"
+    ) -> bool:
+        """
+        Delete a session and all its messages from subcollection, strictly scoped to user_id.
+        """
+        effective_uid = user_id or "default_user"
+        session = self.get_session(session_id, user_id=effective_uid)
+        if not session:
+            return False
+
+        if self.is_live_firebase:
+            try:
+                sub_msgs = self.client.collection("sessions").document(session_id).collection("messages").stream()
+                for d in sub_msgs:
+                    d.reference.delete()
+                self.client.collection("sessions").document(session_id).delete()
+            except Exception as e:
+                logger.error("Failed to delete live Firestore session %s: %s", session_id, e)
+                return False
+        else:
+            with self.client._lock:
+                sub_key = f"sessions/{session_id}/messages"
+                self.client._storage.pop(sub_key, None)
+                if "sessions" in self.client._storage and session_id in self.client._storage["sessions"]:
+                    del self.client._storage["sessions"][session_id]
+                to_del = [k for k in self.client._storage if k.startswith(f"sessions/{session_id}/")]
+                for k in to_del:
+                    self.client._storage.pop(k, None)
+                self.client._persist()
+
+        usage_tracker.record_tool_call("firestore")
+        logger.info("Deleted session %s and all associated messages for user %s", session_id, effective_uid)
         return True
 
 

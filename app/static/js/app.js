@@ -437,6 +437,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = await response.json();
         currentSessionId = data.session_id || currentSessionId;
+        if (currentSessionId) {
+          localStorage.setItem('synaptix_current_session_id', currentSessionId);
+        }
+        if (typeof loadSessions === 'function') {
+          loadSessions();
+        }
 
         const orch = data.orchestration || {};
         const targetAgent = orch.activated_agent || (orch.activated_agents && orch.activated_agents[orch.activated_agents.length - 1]) || 'Coordinator';
@@ -484,14 +490,156 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 8. PERSISTENT MULTI-SESSION CHAT HISTORY & SESSION SWITCHER
+  // ══════════════════════════════════════════════════════════════════════════
+  const newChatBtn = document.getElementById('newChatBtn');
+  const chatSessionsList = document.getElementById('chatSessionsList');
+
+  async function loadSessions() {
+    if (!chatSessionsList) return;
+    try {
+      const response = await fetch('/api/sessions');
+      if (!response.ok) return;
+      const data = await response.json();
+      const sessions = data.sessions || [];
+
+      if (sessions.length === 0) {
+        chatSessionsList.innerHTML = '<div class="sessions-empty" id="sessionsEmpty">No past chats yet</div>';
+        return;
+      }
+
+      chatSessionsList.innerHTML = '';
+      sessions.forEach((s) => {
+        const item = document.createElement('div');
+        item.className = `session-item ${s.session_id === currentSessionId ? 'active' : ''}`;
+        item.setAttribute('data-session-id', s.session_id);
+        item.setAttribute('title', s.title || 'Conversation');
+
+        item.innerHTML = `
+          <div class="session-item-content">
+            <svg class="session-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="session-title">${escapeHtml(s.title || 'New Chat')}</span>
+          </div>
+          <button class="session-delete-btn" type="button" title="Delete conversation" aria-label="Delete conversation">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        `;
+
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.session-delete-btn')) return;
+          switchSession(s.session_id);
+        });
+
+        const delBtn = item.querySelector('.session-delete-btn');
+        if (delBtn) {
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteSession(s.session_id);
+          });
+        }
+
+        chatSessionsList.appendChild(item);
+      });
+    } catch (err) {
+      console.warn('Failed to load sessions:', err);
+    }
+  }
+
+  async function switchSession(sessionId) {
+    if (!sessionId) return;
+    currentSessionId = sessionId;
+    localStorage.setItem('synaptix_current_session_id', sessionId);
+
+    // Update active highlight in sidebar
+    if (chatSessionsList) {
+      const items = chatSessionsList.querySelectorAll('.session-item');
+      items.forEach((it) => {
+        if (it.getAttribute('data-session-id') === sessionId) {
+          it.classList.add('active');
+        } else {
+          it.classList.remove('active');
+        }
+      });
+    }
+
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/messages`);
+      if (!response.ok) {
+        showToast('Could not load session history', 'warning');
+        return;
+      }
+      const data = await response.json();
+      const messages = data.messages || [];
+
+      if (chatMessages) chatMessages.innerHTML = '';
+      conversationHistory.length = 0;
+
+      messages.forEach((m) => {
+        const isUser = m.role === 'user';
+        const sender = isUser ? 'You' : 'Synaptix AI';
+        appendMessage(sender, m.content, isUser);
+        conversationHistory.push({ role: isUser ? 'user' : 'model', content: m.content });
+      });
+
+      updateChatDockState();
+      highlightAgent('Coordinator');
+      if (userInput) userInput.focus();
+    } catch (err) {
+      showToast('Error switching session: ' + err.message, 'error');
+    }
+  }
+
+  function startNewChat() {
+    currentSessionId = null;
+    localStorage.removeItem('synaptix_current_session_id');
+    if (chatMessages) chatMessages.innerHTML = '';
+    conversationHistory.length = 0;
+    updateChatDockState();
+    highlightAgent('Coordinator');
+
+    if (chatSessionsList) {
+      chatSessionsList.querySelectorAll('.session-item').forEach((it) => it.classList.remove('active'));
+    }
+    if (userInput) {
+      userInput.value = '';
+      userInput.focus();
+    }
+  }
+
+  async function deleteSession(sessionId) {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        showToast('Failed to delete session', 'error');
+        return;
+      }
+      showToast('Conversation deleted', 'info');
+      if (currentSessionId === sessionId) {
+        startNewChat();
+      }
+      await loadSessions();
+    } catch (err) {
+      showToast('Error deleting session: ' + err.message, 'error');
+    }
+  }
+
+  if (newChatBtn) {
+    newChatBtn.addEventListener('click', () => {
+      startNewChat();
+      showToast('New conversation started', 'info');
+    });
+  }
+
   // Clear Chat Button Handler
   if (clearChatBtn) {
     clearChatBtn.addEventListener('click', () => {
-      if (chatMessages) chatMessages.innerHTML = '';
-      conversationHistory.length = 0;
-      currentSessionId = null;
-      updateChatDockState();
-      highlightAgent('Coordinator');
+      startNewChat();
       showToast('Conversation cleared', 'info');
     });
   }
@@ -1674,7 +1822,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initial Reminders Load & Polling setup (Poll every 10s for timely alerts)
+  // Initial Sessions & Reminders Load
+  loadSessions();
+  const savedSessionId = localStorage.getItem('synaptix_current_session_id');
+  if (savedSessionId) {
+    switchSession(savedSessionId);
+  }
+
   loadReminders();
   pollDueReminders();
   setInterval(pollDueReminders, 10000);

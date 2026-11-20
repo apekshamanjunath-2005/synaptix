@@ -83,7 +83,16 @@ body {
   position: relative;
 }
 
-button, input, select, textarea {
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+input, select, textarea {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
@@ -334,8 +343,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 16px;
-  flex: 1;
+  margin-top: 14px;
+  flex: 0 0 auto;
 }
 
 .nav-item {
@@ -380,6 +389,181 @@ a {
   justify-content: center;
   color: var(--text-muted);
   transition: color 0.2s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PERSISTENT MULTI-SESSION CHAT LIST
+   ══════════════════════════════════════════════════════════════════════════ */
+.sidebar-sessions-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  overflow: hidden;
+}
+
+.sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px 4px;
+}
+
+.sessions-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.new-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 7px;
+  color: #93c5fd;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.new-chat-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #bfdbfe;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.chat-sessions-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.chat-sessions-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-sessions-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.sessions-empty {
+  font-size: 0.75rem;
+  color: var(--text-disabled);
+  padding: 12px 6px;
+  text-align: center;
+  font-style: italic;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  position: relative;
+  background: transparent;
+}
+
+.session-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.session-item.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.12);
+}
+
+.session-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.session-icon {
+  flex-shrink: 0;
+  opacity: 0.65;
+  color: inherit;
+}
+
+.session-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  color: inherit;
+}
+
+.session-delete-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.session-item:hover .session-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+/* Collapsed sidebar adjustments */
+.sidebar.collapsed .sidebar-sessions-section .sessions-title,
+.sidebar.collapsed .sidebar-sessions-section .chat-sessions-list,
+.sidebar.collapsed .sidebar-sessions-section .new-chat-text {
+  display: none !important;
+}
+
+.sidebar.collapsed .sidebar-sessions-section {
+  border-top: none;
+  margin-top: 4px;
+  padding-top: 0;
+  align-items: center;
+}
+
+.sidebar.collapsed .new-chat-btn {
+  padding: 8px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
 }
 
 /* Sidebar bottom */

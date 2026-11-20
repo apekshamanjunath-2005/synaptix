@@ -74,7 +74,8 @@ class MultiAgentOrchestrator:
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
         user_email: Optional[str] = None,
-        user_tz: Optional[str] = None
+        user_tz: Optional[str] = None,
+        conversation_history: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Execute multi-agent workflow for user query.
@@ -88,15 +89,16 @@ class MultiAgentOrchestrator:
         usage_tracker.enforce_quota_or_raise()
 
         sid = session_id or str(uuid.uuid4())
-        await self._ensure_session(sid, user_id=uid)
 
         # 2. Check if Gemini API key is configured or MOCK_MODE is enabled
         api_key = self.settings.GEMINI_API_KEY
-        if not api_key or not api_key.strip() or self.settings.MOCK_MODE:
+        if not api_key or not api_key.strip() or self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
             # If no API key configured or in MOCK_MODE, use deterministic agent routing for testing/offline mode
             return await self._deterministic_offline_delegation(
                 user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz
             )
+
+        await self._ensure_session(sid, user_id=uid)
 
         # Set environment variable so Google ADK Gemini model authenticates automatically
         import os
@@ -124,6 +126,19 @@ class MultiAgentOrchestrator:
         ]
         if user_name:
             context_lines.append(f"[Current User: {user_name} ({user_email or 'logged-in'})]")
+
+        if conversation_history:
+            history_lines = []
+            for m in conversation_history:
+                r = m.get("role")
+                c = (m.get("content") or "").strip()
+                if c and not (r == "user" and c == user_input.strip() and m == conversation_history[-1]):
+                    speaker = "User" if r == "user" else "Assistant"
+                    history_lines.append(f"{speaker}: {c}")
+            if history_lines:
+                context_lines.append("[Prior Conversation Context (Sliding Window):]")
+                context_lines.extend(history_lines)
+                context_lines.append("[End Prior Conversation Context]")
 
         prompt_text = "\n".join(context_lines) + f"\n\n{user_input}"
 

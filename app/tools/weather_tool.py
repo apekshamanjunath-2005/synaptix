@@ -9,6 +9,7 @@ Features:
 - Zero-cost guarantee (never requires paid API credits or billing accounts)
 """
 
+import os
 import logging
 import hashlib
 from typing import Optional, Dict, Any
@@ -119,8 +120,8 @@ class WeatherTool:
         """
         target_city = (city or self.default_city).strip()
         
-        if not self.api_key:
-            logger.info("OPENWEATHERMAP_API_KEY not configured — using zero-cost fallback for %s", target_city)
+        if not self.api_key or os.getenv("MOCK_MODE", "").lower() == "true":
+            logger.info("OPENWEATHERMAP_API_KEY not configured or MOCK_MODE — using zero-cost fallback for %s", target_city)
             return self._generate_simulated_weather(target_city)
 
         params = {
@@ -180,7 +181,7 @@ class WeatherTool:
         """
         target_city = (city or self.default_city).strip()
         
-        if not self.api_key:
+        if not self.api_key or os.getenv("MOCK_MODE", "").lower() == "true":
             return self._generate_simulated_weather(target_city)
 
         params = {

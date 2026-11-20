@@ -24,6 +24,7 @@ TEST_SUITES = [
     ("Multi-User OAuth — Google Login & Data Isolation", "tests/test_multi_user_oauth.py"),
     ("Smart Day Plans — Firestore Persistence & Isolation", "tests/test_day_plans.py"),
     ("Smart Reminders — Notes, Tasks & Due Alerts", "tests/test_reminders.py"),
+    ("Persistent Multi-Session Chat History", "tests/test_sessions.py"),
 ]
 
 

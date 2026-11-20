@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=2.2">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2.3">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -90,6 +90,23 @@
           <span class="nav-label">Smart Planner</span>
         </button>
       </nav>
+
+      <!-- Persistent Multi-Session Conversations List -->
+      <div class="sidebar-sessions-section" id="sidebarSessionsSection">
+        <div class="sessions-header">
+          <span class="sessions-title">Recent Chats</span>
+          <button type="button" class="new-chat-btn" id="newChatBtn" title="Start New Conversation">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="new-chat-text">New Chat</span>
+          </button>
+        </div>
+        <div class="chat-sessions-list" id="chatSessionsList" role="list">
+          <div class="sessions-empty" id="sessionsEmpty">No past chats yet</div>
+        </div>
+      </div>
 
       <!-- Sidebar Bottom: User Profile -->
       <div class="sidebar-bottom">
@@ -619,6 +636,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=2.2"></script>
+  <script src="/static/js/app.js?v=2.3"></script>
 </body>
 </html>
