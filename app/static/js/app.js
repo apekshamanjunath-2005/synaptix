@@ -73,8 +73,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════════════════════════════════
   // 1. TOAST NOTIFICATION SYSTEM
   // ══════════════════════════════════════════════════════════════════════════
+  let lastToastMsg = '';
+  let lastToastTime = 0;
   function showToast(message, type = 'info', duration = 3500) {
     if (!toastContainer) return;
+    const now = Date.now();
+    if (lastToastMsg === message && (now - lastToastTime) < 1500) {
+      return; // Deduplicate rapid identical toasts
+    }
+    lastToastMsg = message;
+    lastToastTime = now;
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     const icons = {
@@ -2393,7 +2402,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const pastRemindersList = document.getElementById('pastRemindersList');
   const activeRemindersCount = document.getElementById('activeRemindersCount');
 
-  const alertedReminderIds = new Set();
+  const ALERTED_REMINDERS_KEY = 'synaptix_alerted_reminders_v1';
+  function getPersistedAlertedIds() {
+    try {
+      const raw = localStorage.getItem(ALERTED_REMINDERS_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
+  function persistAlertedId(id) {
+    try {
+      const set = getPersistedAlertedIds();
+      set.add(id);
+      localStorage.setItem(ALERTED_REMINDERS_KEY, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  function unpersistAlertedId(id) {
+    try {
+      const set = getPersistedAlertedIds();
+      set.delete(id);
+      localStorage.setItem(ALERTED_REMINDERS_KEY, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
+  const alertedReminderIds = getPersistedAlertedIds();
   let reminderAudioCtx = null;
 
   function initReminderAudio() {
@@ -2634,26 +2669,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showReminderToast(reminder) {
+    if (!toastContainer) return;
+    const existing = document.getElementById(`reminder-toast-${reminder.id}`);
+    if (existing) return;
+
     // 1. Play subtle chime sound
     playReminderChime();
 
-    // 2. Desktop Browser Notification
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    // 2. Desktop Browser Notification (only when page/tab is hidden in background to avoid duplicate OS & web banners)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
       try {
         new Notification('⏰ Synaptix Reminder', {
           body: reminder.title,
-          requireInteraction: true,
+          icon: '/static/favicon.ico',
         });
       } catch (e) {
         console.debug('Browser notification error:', e);
       }
     }
 
-    // 3. In-App Dark Aura Toast Alert
-    if (!toastContainer) return;
-    const existing = document.getElementById(`reminder-toast-${reminder.id}`);
-    if (existing) return;
-
+    // 3. Single authoritative In-App Dark Aura Toast Alert
     const toast = document.createElement('div');
     toast.id = `reminder-toast-${reminder.id}`;
     toast.className = 'toast reminder-toast';
@@ -2685,7 +2720,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showInlineChatReminderAlert(reminder) {
-    if (!chatMessages) return;
+    // Retained for fallback compatibility if toast container is not available
+    if (toastContainer || !chatMessages) return;
     const existing = document.getElementById(`inline-rem-alert-${reminder.id}`);
     if (existing) return;
 
@@ -2711,7 +2747,10 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
   }
 
+  let isPollingDueReminders = false;
   async function pollDueReminders() {
+    if (isPollingDueReminders) return;
+    isPollingDueReminders = true;
     try {
       const nowIso = new Date().toISOString();
       const res = await fetch(`/api/reminders/due?now=${encodeURIComponent(nowIso)}`);
@@ -2719,16 +2758,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data.success && data.due_reminders) {
         updateRemindersBadge(data.due_reminders.length);
+        const persistedAlerted = getPersistedAlertedIds();
         data.due_reminders.forEach((r) => {
-          if (!alertedReminderIds.has(r.id)) {
+          if (!alertedReminderIds.has(r.id) && !persistedAlerted.has(r.id)) {
             alertedReminderIds.add(r.id);
+            persistAlertedId(r.id);
             showReminderToast(r);
-            showInlineChatReminderAlert(r);
           }
         });
       }
     } catch (err) {
       console.debug('Error polling due reminders:', err);
+    } finally {
+      isPollingDueReminders = false;
     }
   }
 
@@ -2740,6 +2782,10 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ status: 'snoozed', snooze_minutes: minutes }),
       });
       if (res.ok) {
+        alertedReminderIds.delete(reminderId);
+        unpersistAlertedId(reminderId);
+        const toast = document.getElementById(`reminder-toast-${reminderId}`);
+        if (toast) toast.remove();
         showToast(`Reminder snoozed for ${minutes} minutes`, 'info');
         loadReminders();
         pollDueReminders();
@@ -2757,6 +2803,10 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ status: 'dismissed' }),
       });
       if (res.ok) {
+        alertedReminderIds.add(reminderId);
+        persistAlertedId(reminderId);
+        const toast = document.getElementById(`reminder-toast-${reminderId}`);
+        if (toast) toast.remove();
         showToast('Reminder dismissed', 'success');
         loadReminders();
         pollDueReminders();
@@ -2771,6 +2821,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch(`/api/reminders/${reminderId}`, { method: 'DELETE' });
       if (res.ok) {
+        alertedReminderIds.delete(reminderId);
+        unpersistAlertedId(reminderId);
+        const toast = document.getElementById(`reminder-toast-${reminderId}`);
+        if (toast) toast.remove();
         showToast('Reminder deleted', 'info');
         loadReminders();
         pollDueReminders();

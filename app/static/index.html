@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=7.0">
+  <link rel="stylesheet" href="/static/css/styles.css?v=7.1">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -152,12 +152,12 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-      <!-- Floating Top Navigation Actions (Mobile & Collapsed View) -->
-      <div class="floating-top-bar">
-        <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu">
+      <!-- Floating Top Navigation Actions (Retained for Element ID & Controller Compatibility) -->
+      <div class="floating-top-bar" id="floatingTopBar" style="display: none !important;" aria-hidden="true">
+        <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Menu" style="display: none !important;" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
-        <button class="floating-bell-btn" id="floatingReminderBellBtn" title="Smart Reminders">
+        <button class="floating-bell-btn" id="floatingReminderBellBtn" title="Smart Reminders" style="display: none !important;" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -985,6 +985,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=7.0"></script>
+  <script src="/static/js/app.js?v=7.1"></script>
 </body>
 </html>
