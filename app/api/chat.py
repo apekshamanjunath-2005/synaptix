@@ -33,6 +33,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="User browser IANA timezone (e.g. 'Asia/Kolkata', 'America/New_York')"
     )
+    target_agent: Optional[str] = Field(
+        default=None,
+        description="Explicit target agent route: auto, tasks, notes, calendar, gmail, planner"
+    )
 
 
 class ChatResponse(BaseModel):
@@ -104,6 +108,7 @@ async def chat_endpoint(
         user_email=uemail,
         user_tz=request.timezone,
         conversation_history=recent_history,
+        target_agent=request.target_agent,
     )
 
     assistant_reply = result.get("reply", "Coordinator completed the task.")

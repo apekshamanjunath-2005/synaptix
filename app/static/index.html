@@ -6,8 +6,8 @@
   <title>Synaptix — Multi-Agent AI Personal Productivity Assistant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=4.0">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=5.0">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -184,61 +184,88 @@
       <!-- TAB 1: AI ASSISTANT (Hero-to-Chat & Animated Glow Centerpiece) -->
       <section class="tab-pane active" id="tab-chat">
         <div class="chat-container is-hero" id="chatContainer">
-          <!-- Hero Greeting (Visible when chat is empty) -->
-          <div class="chat-hero" id="chatHero">
-            <div class="hero-glyph">
-              <div class="hero-glyph-ring"></div>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11h3a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5c-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4h3V9.5C6.8 8.8 6 7.5 6 6a4 4 0 0 1 4-4h2z"/>
-              </svg>
+          <!-- Editorial Hero Greeting (Empty / New Chat State) -->
+          <div class="chat-hero editorial-hero" id="chatHero">
+            <div class="hero-editorial-badge">
+              <span class="hero-sparkle">✦</span>
+              <span>SYNAPTIX WORKSPACE</span>
             </div>
-            <h1 class="hero-headline">Good day. What shall we achieve?</h1>
-            <p class="hero-tagline">Ask to organize tasks, capture notes, schedule meetings, draft emails, or plan your entire day.</p>
+            <h1 class="hero-headline editorial-headline">
+              <span class="headline-line1">Meet Synaptix,</span>
+              <span class="headline-line2">get it done.</span>
+            </h1>
+            <p class="hero-tagline editorial-tagline">
+              An editorial AI assistant orchestrating your calendar, tasks, notes, email drafts, and daily schedule.
+            </p>
           </div>
 
           <!-- Chat Messages (Scrollable conversation stream) -->
           <div class="chat-messages" id="chatMessages"></div>
 
-          <!-- Floating Animated Dual-Tone Glow Prompt Box (Centerpiece) -->
-          <div class="prompt-box-wrapper" id="promptBoxWrapper">
-            <div class="aura-glow-wrapper" id="auraGlowWrapper">
-              <div class="prompt-box-inner">
-                <form id="chatForm" class="prompt-form">
-                  <textarea id="userInput" placeholder="How can I help you?" rows="1" autocomplete="off" spellcheck="false"></textarea>
-                  
-                  <div class="prompt-bottom-bar">
-                    <!-- Bottom-Left Pill Controls -->
-                    <div class="prompt-controls-left">
-                      <div class="mode-select-pill">
-                        <select id="modeSelect" class="mode-select" title="Target Agent or Capability">
-                          <option value="auto" selected>✨ Auto (Coordinator)</option>
-                          <option value="gmail">✉️ Gmail</option>
-                          <option value="tasks">✅ Tasks</option>
-                          <option value="notes">📝 Notes</option>
-                          <option value="calendar">📅 Calendar</option>
-                          <option value="planner">🧭 Smart Planner</option>
-                        </select>
-                      </div>
+          <!-- Signature Framed Composer Card (Lindy-Inspired Dark Edition) -->
+          <div class="prompt-box-wrapper framed-composer-wrapper" id="promptBoxWrapper">
+            <div class="aura-glow-wrapper framed-composer-card" id="auraGlowWrapper">
+              
+              <!-- Hidden Mode Select (Retained for Backwards & Test Compatibility) -->
+              <select id="modeSelect" class="mode-select" style="display: none;" aria-hidden="true" title="Target Agent or Capability">
+                <option value="auto" selected>✨ Auto (Coordinator)</option>
+                <option value="gmail">✉️ Gmail</option>
+                <option value="tasks">✅ Tasks</option>
+                <option value="notes">📝 Notes</option>
+                <option value="calendar">📅 Calendar</option>
+                <option value="planner">🧭 Smart Planner</option>
+              </select>
 
-                      <div class="prompt-chips">
-                        <button type="button" class="chip" data-prompt="Plan my day today">Plan day</button>
-                        <button type="button" class="chip" data-prompt="Draft an email to ">Draft email</button>
-                        <button type="button" class="chip" data-prompt="Show my pending tasks">My tasks</button>
-                        <button type="button" class="chip" data-prompt="What meetings do I have scheduled?">Calendar</button>
-                        <button type="button" class="chip chip-clear" id="clearChatBtn" title="Clear conversation">🗑️</button>
-                      </div>
+              <!-- Inner Crisp Dark Input Card -->
+              <div class="prompt-box-inner composer-inner-card">
+                <form id="chatForm" class="prompt-form">
+                  <textarea id="userInput" placeholder="Ask Synaptix to plan your day, set a reminder, or draft an email..." rows="2" autocomplete="off" spellcheck="false"></textarea>
+                  
+                  <div class="prompt-bottom-bar composer-input-bottom">
+                    <div class="prompt-chips">
+                      <button type="button" class="chip chip-clear" id="clearChatBtn" title="Clear conversation">🗑️</button>
                     </div>
 
-                    <!-- Bottom-Right Send Button with Blue Glow Border -->
-                    <button type="submit" id="sendBtn" class="send-btn-aura" title="Send message (Enter)">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    <!-- Bottom-Right High-Contrast Send Pill Button -->
+                    <button type="submit" id="sendBtn" class="send-btn-aura send-pill-btn" title="Send message (Enter)">
+                      <span class="send-pill-text">Send</span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
                       </svg>
                     </button>
                   </div>
                 </form>
               </div>
+
+              <!-- Interactive Agent Navigation Pills Below the Input Box -->
+              <div class="agent-nav-pills-bar" id="agentNavPills" role="tablist" aria-label="Select Target Agent">
+                <button type="button" class="agent-nav-pill active" data-mode="auto" title="Auto Coordinator">
+                  <span class="pill-icon">✨</span>
+                  <span class="pill-label">Auto (Coordinator)</span>
+                </button>
+                <button type="button" class="agent-nav-pill" data-mode="tasks" title="Tasks Agent">
+                  <span class="pill-icon">✅</span>
+                  <span class="pill-label">Tasks Agent</span>
+                </button>
+                <button type="button" class="agent-nav-pill" data-mode="notes" title="Notes Agent">
+                  <span class="pill-icon">📝</span>
+                  <span class="pill-label">Notes Agent</span>
+                </button>
+                <button type="button" class="agent-nav-pill" data-mode="calendar" title="Calendar Agent">
+                  <span class="pill-icon">📅</span>
+                  <span class="pill-label">Calendar Agent</span>
+                </button>
+                <button type="button" class="agent-nav-pill" data-mode="gmail" title="Gmail Agent">
+                  <span class="pill-icon">✉️</span>
+                  <span class="pill-label">Gmail Agent</span>
+                </button>
+                <button type="button" class="agent-nav-pill" data-mode="planner" title="Smart Planner">
+                  <span class="pill-icon">🧭</span>
+                  <span class="pill-label">Smart Planner</span>
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
@@ -818,6 +845,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=4.0"></script>
+  <script src="/static/js/app.js?v=5.0"></script>
 </body>
 </html>

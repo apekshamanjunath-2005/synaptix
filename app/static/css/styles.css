@@ -16,13 +16,18 @@
 }
 
 :root {
-  /* Surface & Canvas System (Lindy Dark Mode) */
-  --bg-canvas: #0B0C0E;
-  --bg-surface: #121417;
-  --bg-surface-elevated: #16191E;
-  --bg-surface-hover: #1A1D22;
-  --bg-surface-active: #1F232B;
-  --bg-input: #15181D;
+  /* Typography Fonts */
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Surface & Canvas System: Warm Obsidian (Lindy Hero Aesthetic) */
+  --bg-canvas: #0D0D0F;
+  --bg-surface: #131316;
+  --bg-surface-elevated: #18181D;
+  --bg-surface-hover: #1E1E24;
+  --bg-surface-active: #25252D;
+  --bg-input: #141417;
 
   /* Hairline Borders: Crisp, subtle separation */
   --border-subtle: rgba(255, 255, 255, 0.05);
@@ -30,23 +35,28 @@
   --border-strong: rgba(255, 255, 255, 0.14);
   --border-color: rgba(255, 255, 255, 0.08);
 
-  /* Typography Colors */
-  --text-primary: #F3F4F6;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
-  --text-disabled: #4B5563;
+  /* Typography Colors: Warm Off-White & Soft Sand Muted */
+  --text-primary: #F4F3EE;
+  --text-secondary: #9A9890;
+  --text-muted: #6E6D66;
+  --text-disabled: #4B4A45;
 
-  /* Refined Accent System (Soft Indigo/Blue) */
-  --accent-primary: #5E6AD2;
-  --accent-hover: #4F5AC0;
-  --accent-subtle: rgba(94, 106, 210, 0.12);
-  --accent-border: rgba(94, 106, 210, 0.35);
+  /* Signature Accent: Warm Champagne Gold (#D4AF6A / #C8A25F) */
+  --accent-primary: #D4AF6A;
+  --accent-gold: #D4AF6A;
+  --accent-gold-dark: #C8A25F;
+  --accent-hover: #E0C07F;
+  --accent-subtle: rgba(212, 175, 106, 0.12);
+  --accent-border: rgba(212, 175, 106, 0.28);
+  --accent-gold-glow: rgba(212, 175, 106, 0.25);
+  --accent-gold-bg: rgba(212, 175, 106, 0.12);
+  --accent-gold-metallic: linear-gradient(145deg, rgba(212, 175, 106, 0.18) 0%, rgba(160, 125, 65, 0.07) 100%);
 
   /* Backwards-compatible aliases for tools & tests */
-  --glow-orange: #5E6AD2;
-  --glow-blue: #5E6AD2;
-  --accent-blue-subtle: rgba(94, 106, 210, 0.12);
-  --accent-orange-subtle: rgba(94, 106, 210, 0.12);
+  --glow-orange: #D4AF6A;
+  --glow-blue: #D4AF6A;
+  --accent-blue-subtle: rgba(212, 175, 106, 0.12);
+  --accent-orange-subtle: rgba(212, 175, 106, 0.12);
 
   /* Functional Status Colors */
   --success: #10B981;
@@ -59,8 +69,8 @@
   /* Layout Dimensions */
   --sidebar-width: 250px;
   --sidebar-collapsed-width: 68px;
-  --prompt-max-width: 780px;
-  --radius-lg: 16px;
+  --prompt-max-width: 800px;
+  --radius-lg: 20px;
   --radius-md: 12px;
   --radius-sm: 8px;
   --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -94,7 +104,7 @@ body {
 }
 
 ::selection {
-  background: rgba(94, 106, 210, 0.35);
+  background: rgba(212, 175, 106, 0.35);
   color: #FFFFFF;
 }
 
@@ -3027,4 +3037,293 @@ input, select, textarea {
   background: rgba(16, 185, 129, 0.15);
   color: #34D399;
   border-color: rgba(16, 185, 129, 0.3);
+}
+
+.floating-top-bar,
+#floatingReminderBellBtn,
+#mobileSidebarToggle {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .floating-top-bar {
+    display: flex !important;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 40;
+    gap: 8px;
+    align-items: center;
+  }
+  #mobileSidebarToggle {
+    display: flex !important;
+  }
+  #floatingReminderBellBtn {
+    display: flex !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EDITORIAL WARM DARK HERO & SIGNATURE FRAMED COMPOSER CARD
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Hero Greeting Section */
+.chat-hero, .editorial-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  transition: max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-height, opacity, transform;
+}
+
+.hero-editorial-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(212, 175, 106, 0.08);
+  border: 1px solid rgba(212, 175, 106, 0.25);
+  color: var(--accent-gold);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.hero-sparkle {
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+}
+
+.editorial-headline {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  margin-bottom: 14px;
+}
+
+.headline-line1 {
+  display: block;
+  font-size: clamp(2.6rem, 4.8vw, 3.6rem);
+  color: #F4F3EE;
+}
+
+.headline-line2 {
+  display: block;
+  font-size: clamp(2.6rem, 4.8vw, 3.6rem);
+  font-style: italic;
+  color: #D4AF6A;
+  background: linear-gradient(135deg, #F4F3EE 0%, #D4AF6A 45%, #C8A25F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.editorial-tagline {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  color: #9A9890;
+  max-width: 520px;
+  line-height: 1.55;
+  margin: 0 auto;
+}
+
+/* Signature Framed Composer Card (Lindy-Inspired Dark Edition) */
+.prompt-box-wrapper, .framed-composer-wrapper {
+  width: 100%;
+  max-width: var(--prompt-max-width);
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aura-glow-wrapper, .framed-composer-card {
+  position: relative;
+  width: 100%;
+  border-radius: 24px;
+  padding: 14px;
+  background: linear-gradient(145deg, rgba(212, 175, 106, 0.18) 0%, rgba(160, 125, 65, 0.07) 100%), #121215;
+  border: 1px solid rgba(212, 175, 106, 0.28);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(212, 175, 106, 0.08);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.aura-glow-wrapper:focus-within,
+.aura-glow-wrapper.is-focused,
+.framed-composer-card:focus-within {
+  border-color: rgba(212, 175, 106, 0.45);
+  box-shadow: 0 20px 52px -8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 106, 0.15);
+}
+
+.aura-glow-wrapper.is-thinking,
+.framed-composer-card.is-thinking {
+  border-color: rgba(212, 175, 106, 0.75) !important;
+  box-shadow: 0 20px 52px -8px rgba(0, 0, 0, 0.8), 0 0 24px rgba(212, 175, 106, 0.3) !important;
+  animation: goldThinkingPulse 2s ease-in-out infinite !important;
+}
+
+@keyframes goldThinkingPulse {
+  0%, 100% {
+    border-color: rgba(212, 175, 106, 0.4);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.7), 0 0 14px rgba(212, 175, 106, 0.15);
+  }
+  50% {
+    border-color: rgba(212, 175, 106, 0.85);
+    box-shadow: 0 22px 56px rgba(0, 0, 0, 0.85), 0 0 28px rgba(212, 175, 106, 0.4);
+  }
+}
+
+/* Inner Crisp Dark Input Card */
+.prompt-box-inner, .composer-inner-card {
+  background: #141417;
+  border-radius: 16px;
+  min-height: 96px;
+  padding: 12px 16px 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.prompt-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 8px;
+}
+
+#userInput {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  min-height: 48px;
+  max-height: 180px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  line-height: 1.55;
+  padding: 0;
+}
+
+#userInput::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.prompt-bottom-bar, .composer-input-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+/* High-Contrast Send Pill Button */
+.send-btn-aura, .send-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  height: 32px;
+  border-radius: 999px;
+  background: #D4AF6A;
+  color: #0D0D0F;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  border: none;
+  box-shadow: 0 2px 8px rgba(212, 175, 106, 0.25);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.send-btn-aura:hover:not(:disabled), .send-pill-btn:hover:not(:disabled) {
+  background: #E0C07F;
+  box-shadow: 0 4px 14px rgba(212, 175, 106, 0.4);
+  transform: translateY(-1px);
+}
+
+.send-btn-aura:disabled, .send-pill-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.send-pill-text {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Interactive Agent Navigation Pills Below the Input Box */
+.agent-nav-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 2px 2px;
+}
+
+.agent-nav-pill {
+  background: #1B1B20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-family: var(--font-sans);
+  font-size: 0.775rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.agent-nav-pill:hover {
+  background: #23232A;
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.agent-nav-pill.active {
+  background: rgba(212, 175, 106, 0.14);
+  border-color: #D4AF6A;
+  color: #F4F3EE;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(212, 175, 106, 0.18);
+}
+
+.pill-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.pill-label {
+  letter-spacing: 0.01em;
+}
+
+/* Calendar Segmented Tab Switcher (Selected Date | Upcoming | Past) */
+.cal-seg-btn.active {
+  background: rgba(212, 175, 106, 0.15) !important;
+  border-color: #D4AF6A !important;
+  color: #F4F3EE !important;
+  font-weight: 600 !important;
+  box-shadow: 0 0 10px rgba(212, 175, 106, 0.18) !important;
+}
+
+.cal-seg-count {
+  background: rgba(212, 175, 106, 0.25);
+  color: #F4F3EE;
 }

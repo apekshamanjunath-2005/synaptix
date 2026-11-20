@@ -76,7 +76,8 @@ class MultiAgentOrchestrator:
         user_name: Optional[str] = None,
         user_email: Optional[str] = None,
         user_tz: Optional[str] = None,
-        conversation_history: Optional[List[Dict[str, Any]]] = None
+        conversation_history: Optional[List[Dict[str, Any]]] = None,
+        target_agent: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Execute multi-agent workflow for user query.
@@ -96,7 +97,7 @@ class MultiAgentOrchestrator:
         if not api_key or not api_key.strip() or self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
             # If no API key configured or in MOCK_MODE, use deterministic agent routing for testing/offline mode
             return await self._deterministic_offline_delegation(
-                user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz
+                user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz, target_agent=target_agent
             )
 
         await self._ensure_session(sid, user_id=uid)
@@ -207,7 +208,7 @@ class MultiAgentOrchestrator:
 
                 logger.error("ADK runner execution failed: %s. Falling back to zero-cost offline engine.", exc)
                 fallback = await self._deterministic_offline_delegation(
-                    user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz
+                    user_input, sid, user_id=uid, user_name=user_name, user_email=user_email, user_tz=user_tz, target_agent=target_agent
                 )
                 if "402" in err_str or "prepayment" in err_str.lower():
                     banner = (
@@ -283,7 +284,8 @@ class MultiAgentOrchestrator:
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
         user_email: Optional[str] = None,
-        user_tz: Optional[str] = None
+        user_tz: Optional[str] = None,
+        target_agent: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Deterministic intent router for testing and offline execution without API keys.
@@ -293,12 +295,13 @@ class MultiAgentOrchestrator:
         set_user_context(user_id=uid, name=user_name, email=user_email)
         usage_tracker.record_agent_run()
         lower = user_input.lower()
+        ta = (target_agent or "").strip().lower()
         activated_agent = "SynaptixCoordinator"
         tools_called = []
         reply = ""
 
-        # ROUTING RULE 1: Smart Day Planner Intent (Evaluated first to capture multi-domain planning queries)
-        if any(kw in lower for kw in ["plan my day", "plan tomorrow", "daily plan", "organize my day", "daily schedule", "smart plan", "plan"]):
+        # ROUTING RULE 1: Smart Day Planner Intent (Evaluated first or if explicitly targeted)
+        if ta in ("planner", "smartdayplanneragent") or any(kw in lower for kw in ["plan my day", "plan tomorrow", "daily plan", "organize my day", "daily schedule", "smart plan", "plan"]):
             activated_agent = "SmartDayPlannerAgent"
             target_date = get_tomorrow_date() if "tomorrow" in lower else get_today_date()
             tasks_data = json.loads(task_list(status="pending"))
@@ -347,7 +350,7 @@ class MultiAgentOrchestrator:
                 logger.warning("Failed to auto-persist day plan: %s", save_err)
 
         # ROUTING RULE 2: Email Intent (Human-in-the-Loop Draft -> Approve -> Send)
-        elif any(kw in lower for kw in ["email", "mail", "draft", "compose", "approve and send", "approve draft", "send the draft"]):
+        elif ta in ("gmail", "gmailagent") or any(kw in lower for kw in ["email", "mail", "draft", "compose", "approve and send", "approve draft", "send the draft"]):
             activated_agent = "GmailAgent"
             # Check for explicit user approval to send an existing draft
             if any(kw in lower for kw in ["approve and send", "approve draft", "send the draft", "approved send", "approve", "send it", "looks good send", "send draft"]):
@@ -415,7 +418,7 @@ class MultiAgentOrchestrator:
                 )
 
         # ROUTING RULE 3: Notes Intent (Evaluated before tasks so 'save a note and remind me' activates NotesAgent)
-        elif any(kw in lower for kw in ["note", "remember", "save note", "write down"]):
+        elif ta in ("notes", "notesagent") or any(kw in lower for kw in ["note", "remember", "save note", "write down"]):
             activated_agent = "NotesAgent"
             if "search" in lower or "find" in lower:
                 term = lower.replace("search notes for", "").replace("search notes", "").strip()
@@ -467,7 +470,7 @@ class MultiAgentOrchestrator:
                     reply = f"📝 **Note Saved by NotesAgent:**\n- **ID:** `{n['id']}`\n- **Title:** {n['title']}\n- **Content:** {n['content']}"
 
         # ROUTING RULE 4: Task & Reminder Intent
-        elif any(kw in lower for kw in ["task", "todo", "remind me", "reminder", "reminders", "pending", "complete task"]):
+        elif ta in ("tasks", "taskagent") or any(kw in lower for kw in ["task", "todo", "remind me", "reminder", "reminders", "pending", "complete task"]):
             activated_agent = "TaskAgent"
             if "dismiss" in lower and "reminder" in lower:
                 import re
@@ -543,8 +546,8 @@ class MultiAgentOrchestrator:
                 tools_called.append("task_list")
                 reply = f"📋 **Tasks Overview (TaskAgent):** Found {raw_res['count']} tasks in storage."
 
-        # ROUTING RULE 4: Calendar Intent
-        elif any(kw in lower for kw in ["calendar", "schedule", "meeting", "event", "appointment"]):
+        # ROUTING RULE 5: Calendar Intent
+        elif ta in ("calendar", "calendaragent") or any(kw in lower for kw in ["calendar", "schedule", "meeting", "event", "appointment"]):
             activated_agent = "CalendarAgent"
             if "schedule" in lower or "book" in lower:
                 summary = user_input.replace("schedule meeting", "").replace("schedule", "").strip() or "Productivity Session"

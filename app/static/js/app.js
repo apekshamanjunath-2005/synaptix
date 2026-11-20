@@ -244,15 +244,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 6. MODE SELECTOR DROPDOWN
+  // 6. AGENT NAVIGATION PILLS & MODE SELECTOR
   // ══════════════════════════════════════════════════════════════════════════
   const modePlaceholders = {
-    auto: 'How can I help you?',
-    gmail: 'Draft an email to [person] about [topic]...',
-    tasks: 'Add high-priority task [title] due [date]...',
-    notes: 'Capture note: [title or content]...',
-    calendar: 'Schedule a meeting with [person] tomorrow at 3pm...',
-    planner: 'Plan my day today based on tasks and meetings...',
+    auto: 'Ask Synaptix to plan your day, set a reminder, or draft an email...',
+    gmail: 'Ask Gmail Agent to draft or check emails...',
+    tasks: 'Ask Tasks Agent to add, list, or complete tasks...',
+    notes: 'Ask Notes Agent to capture, search, or summarize notes...',
+    calendar: 'Ask Calendar Agent to schedule, check, or reschedule events...',
+    planner: 'Ask Smart Planner to optimize your schedule, timetable, or day...',
   };
 
   const modeAgentMap = {
@@ -264,11 +264,35 @@ document.addEventListener('DOMContentLoaded', () => {
     planner: 'SmartDayPlannerAgent',
   };
 
+  let activeAgentMode = 'auto';
+
+  const agentNavPills = document.querySelectorAll('.agent-nav-pill');
+  if (agentNavPills.length > 0) {
+    agentNavPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        agentNavPills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        const mode = pill.dataset.mode || 'auto';
+        activeAgentMode = mode;
+        if (modeSelect) modeSelect.value = mode;
+        if (userInput) {
+          userInput.placeholder = modePlaceholders[mode] || modePlaceholders.auto;
+          userInput.focus();
+        }
+        highlightAgent(modeAgentMap[mode] || 'Coordinator');
+      });
+    });
+  }
+
   if (modeSelect) {
     modeSelect.addEventListener('change', () => {
       const mode = modeSelect.value;
+      activeAgentMode = mode;
+      agentNavPills.forEach((p) => {
+        p.classList.toggle('active', p.dataset.mode === mode);
+      });
       if (userInput) {
-        userInput.placeholder = modePlaceholders[mode] || 'How can I help you?';
+        userInput.placeholder = modePlaceholders[mode] || modePlaceholders.auto;
         userInput.focus();
       }
       highlightAgent(modeAgentMap[mode] || 'Coordinator');
@@ -403,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
             session_id: currentSessionId,
             conversation_history: conversationHistory.slice(-6),
             timezone: userTz,
+            target_agent: activeAgentMode !== 'auto' ? activeAgentMode : undefined,
           }),
         });
 
