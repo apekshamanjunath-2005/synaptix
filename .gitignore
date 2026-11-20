@@ -6,22 +6,30 @@ env/
 
 # Environment Variables & Secrets
 .env
+.env.*
 *.local
 credentials.json
+*credentials*.json
 serviceAccountKey.json
+service_account*.json
+*service_account*.json
 firebase-credentials.json
 firebase-key.json
 firebase-key.json.json
 *firebase*.json
 *serviceAccount*.json
+client_secret*.json
+*client_secret*.json
+token.json
+*token*.json
+*.cache
+*.pem
+*.key
+*.p12
 .usage_cache.json
 .firestore_local.json
 .calendar_local.json
 .gmail_local.json
-token.json
-*token*.json
-*.cache
-
 
 # Python cache & artifacts
 __pycache__/
@@ -48,7 +56,6 @@ Desktop.ini
 
 # Reference Codebase (Inspection Only)
 reference_neuroflow/
-
 
 # Logs
 *.log

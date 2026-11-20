@@ -22,12 +22,15 @@ class Settings(BaseSettings):
     # Firebase Firestore (Configured in Milestone 4)
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+    FIREBASE_CREDENTIALS_JSON: Optional[str] = None
 
     # Google OAuth 2.0 Web Login & Scopes (synaptix-68373)
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_ID: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_SECRET: Optional[str] = None
+    BASE_URL: Optional[str] = None
+    RENDER_EXTERNAL_URL: Optional[str] = None
     OAUTH_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
     SESSION_SECRET_KEY: str = "synaptix-secret-session-key-change-in-production-123456789"
     MOCK_MODE: bool = False
