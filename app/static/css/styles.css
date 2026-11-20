@@ -1286,14 +1286,23 @@ a {
   margin: 0;
 }
 
-/* Agent Directory Header */
+/* ══════════════════════════════════════════════════════════════════════════
+   7. HOW IT WORKS & HORIZONTALLY MOVING SPECIALIST AGENT DIRECTORY
+   ══════════════════════════════════════════════════════════════════════════ */
 .agent-directory-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 4px;
-  margin-top: 8px;
-  margin-bottom: -16px;
+  margin-top: 14px;
+  margin-bottom: 2px;
+  width: 100%;
+}
+
+.agent-dir-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .agent-dir-label {
@@ -1304,44 +1313,138 @@ a {
   text-transform: uppercase;
 }
 
+.agent-dir-pulse-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: rgba(212, 175, 106, 0.1);
+  border: 1px solid rgba(212, 175, 106, 0.25);
+  border-radius: var(--radius-full);
+}
+
+.agent-dir-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
+  animation: pulseDotLive 2s infinite ease-in-out;
+}
+
+@keyframes pulseDotLive {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.agent-dir-pulse-text {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #E6E4DD;
+  letter-spacing: 0.04em;
+}
+
+.agent-dir-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .agent-dir-hint {
   font-size: 0.76rem;
   color: #9A9890;
 }
 
-/* Agent Directory Grid */
-.agent-directory-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
+.agent-track-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  color: #C8A25F;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+  user-select: none;
+}
+
+.agent-track-toggle-btn:hover {
+  background: rgba(212, 175, 106, 0.14);
+  border-color: rgba(212, 175, 106, 0.35);
+  color: #F4F3EE;
+}
+
+/* Horizontally Moving Agent Directory Carousel Wrapper */
+.agent-directory-carousel-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 12px 0 20px 0;
+  mask-image: linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%);
+}
+
+.agent-directory-track {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 16px !important;
+  width: max-content !important;
+  animation: agentTrackGlide 32s linear infinite !important;
+  will-change: transform;
+}
+
+/* Pause horizontal movement on hover for intuitive interaction */
+.agent-directory-carousel-wrapper:hover .agent-directory-track,
+.agent-directory-track:hover {
+  animation-play-state: paused !important;
+}
+
+@keyframes agentTrackGlide {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(calc(-50% - 8px), 0, 0);
+  }
 }
 
 .agent-redirect-card {
-  background: #131316;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 14px;
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 0.2s var(--ease-out), transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
-  position: relative;
-  outline: none;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
+  flex-shrink: 0 !important;
+  background: #131316 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: border-color 0.22s var(--ease-out), transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), background-color 0.22s var(--ease-out) !important;
+  position: relative !important;
+  outline: none !important;
 }
 
 .agent-redirect-card:hover,
 .agent-redirect-card:focus-visible {
-  border-color: rgba(212, 175, 106, 0.45);
-  background: #16171b;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgba(212, 175, 106, 0.12);
+  border-color: rgba(212, 175, 106, 0.5) !important;
+  background: #17181D !important;
+  transform: translateY(-3px) scale(1.01) !important;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.65), 0 0 20px -4px rgba(212, 175, 106, 0.2) !important;
 }
 
 .agent-redirect-card:focus-visible {
-  box-shadow: 0 0 0 2px rgba(212, 175, 106, 0.4);
+  box-shadow: 0 0 0 2px rgba(212, 175, 106, 0.45) !important;
 }
 
 .agent-card-header {
@@ -1365,8 +1468,8 @@ a {
 }
 
 .agent-redirect-card:hover .agent-card-icon {
-  transform: scale(1.05);
-  border-color: rgba(212, 175, 106, 0.3);
+  transform: scale(1.06);
+  border-color: rgba(212, 175, 106, 0.35);
 }
 
 .agent-card-title-group {
@@ -1424,6 +1527,13 @@ a {
 
 .agent-redirect-card:hover .cta-arrow {
   transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-directory-track {
+    animation: none !important;
+    overflow-x: auto !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -2666,13 +2776,19 @@ a {
   .stats-row {
     grid-template-columns: 1fr;
   }
-  .agent-directory-grid {
-    grid-template-columns: 1fr;
+  .agent-directory-track {
+    animation-duration: 26s !important;
+  }
+  .agent-redirect-card {
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
+    padding: 14px 16px !important;
   }
   .agent-directory-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: 8px;
   }
   .how-it-works-title {
     font-size: 1.7rem;

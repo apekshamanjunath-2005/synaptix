@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Interactive Specialist Agent Directory Cards
+  // Interactive Specialist Agent Directory Cards & Horizontal Gliding Carousel
   document.querySelectorAll('.agent-redirect-card').forEach((card) => {
     const handleRedirect = (e) => {
       e.preventDefault();
@@ -271,6 +271,37 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  // Pause / Resume Movement Controls for Specialist Agent Directory
+  const agentTrackToggle = document.getElementById('agentTrackToggle');
+  const agentDirectoryTrack = document.getElementById('agentDirectoryTrack');
+  const agentDirectoryCarousel = document.getElementById('agentDirectoryCarousel');
+  const agentTrackToggleIcon = document.getElementById('agentTrackToggleIcon');
+  const agentTrackToggleText = document.getElementById('agentTrackToggleText');
+
+  if (agentTrackToggle && agentDirectoryTrack) {
+    let isMoving = true;
+    agentTrackToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isMoving = !isMoving;
+      agentDirectoryTrack.style.animationPlayState = isMoving ? 'running' : 'paused';
+      if (agentTrackToggleIcon) agentTrackToggleIcon.textContent = isMoving ? '⏸' : '▶';
+      if (agentTrackToggleText) agentTrackToggleText.textContent = isMoving ? 'Pause' : 'Resume';
+      agentTrackToggle.setAttribute('title', isMoving ? 'Pause Horizontal Movement' : 'Resume Horizontal Movement');
+    });
+  }
+
+  // Touch pause on mobile devices
+  if (agentDirectoryCarousel && agentDirectoryTrack) {
+    agentDirectoryCarousel.addEventListener('touchstart', () => {
+      agentDirectoryTrack.style.animationPlayState = 'paused';
+    }, { passive: true });
+    agentDirectoryCarousel.addEventListener('touchend', () => {
+      if (!agentTrackToggle || agentTrackToggle.getAttribute('title')?.includes('Pause')) {
+        agentDirectoryTrack.style.animationPlayState = 'running';
+      }
+    }, { passive: true });
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // 4. HEALTH TELEMETRY POLLING (Silent Background Safeguard)
