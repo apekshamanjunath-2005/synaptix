@@ -83,6 +83,15 @@ def run_master_test_suite():
 
     if passed_count == total_count:
         print(" 🎉 ALL MILESTONE TEST SUITES PASSED WITH 100% SUCCESS!\n")
+        # Clean up local mock artifacts so test records never leak into the workspace
+        try:
+            (PROJECT_ROOT / ".calendar_local.json").write_text(json.dumps({"events": {}}, indent=2), encoding="utf-8")
+            (PROJECT_ROOT / ".gmail_local.json").write_text(json.dumps({"drafts": {}}, indent=2), encoding="utf-8")
+            (PROJECT_ROOT / ".firestore_local.json").write_text(json.dumps({
+                "tasks": {}, "notes": {}, "reminders": {}, "day_plans": {}, "sessions": {}, "timetables": {}, "users": {}
+            }, indent=2), encoding="utf-8")
+        except Exception:
+            pass
         return 0
     else:
         print(" ⚠️ SOME TEST SUITES FAILED. PLEASE REVIEW LOGS ABOVE.\n")

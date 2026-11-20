@@ -903,33 +903,19 @@ class FirestoreService:
 
     @staticmethod
     def _get_default_timetable(user_id: str) -> Dict[str, Any]:
-        """Generate default timetable with balanced focus, meeting, and break blocks."""
+        """Generate empty timetable for user with zero dummy blocks."""
         now_iso = datetime.now(timezone.utc).isoformat()
-        weekday_blocks = [
-            {"id": "blk-d1", "start_time": "09:00", "end_time": "10:30", "title": "Deep Focus: Core Engineering", "category": "focus"},
-            {"id": "blk-d2", "start_time": "11:00", "end_time": "12:00", "title": "Team Standup & Sync", "category": "meeting"},
-            {"id": "blk-d3", "start_time": "12:30", "end_time": "13:30", "title": "Lunch & Mindful Recharge", "category": "break"},
-            {"id": "blk-d4", "start_time": "14:00", "end_time": "16:00", "title": "Project Execution & Sprint", "category": "focus"},
-            {"id": "blk-d5", "start_time": "17:00", "end_time": "17:45", "title": "Day Wrap-up & Task Logging", "category": "wrapup"},
-        ]
-        weekend_blocks = [
-            {"id": "blk-we1", "start_time": "09:30", "end_time": "11:00", "title": "Deep Focus: Creative Projects", "category": "focus"},
-            {"id": "blk-we2", "start_time": "11:30", "end_time": "12:30", "title": "Skill Learning & Reading", "category": "focus"},
-            {"id": "blk-we3", "start_time": "12:30", "end_time": "13:30", "title": "Mindful Lunch & Break", "category": "break"},
-            {"id": "blk-we4", "start_time": "15:00", "end_time": "16:30", "title": "Personal Projects & Sprint", "category": "focus"},
-            {"id": "blk-we5", "start_time": "17:00", "end_time": "18:00", "title": "Recreation / Fitness", "category": "personal"},
-        ]
         return {
             "user_id": user_id,
             "updated_at": now_iso,
             "days": {
-                "monday": [dict(b, id=f"blk-mon-{i+1}") for i, b in enumerate(weekday_blocks)],
-                "tuesday": [dict(b, id=f"blk-tue-{i+1}") for i, b in enumerate(weekday_blocks)],
-                "wednesday": [dict(b, id=f"blk-wed-{i+1}") for i, b in enumerate(weekday_blocks)],
-                "thursday": [dict(b, id=f"blk-thu-{i+1}") for i, b in enumerate(weekday_blocks)],
-                "friday": [dict(b, id=f"blk-fri-{i+1}") for i, b in enumerate(weekday_blocks)],
-                "saturday": [dict(b, id=f"blk-sat-{i+1}") for i, b in enumerate(weekend_blocks)],
-                "sunday": [dict(b, id=f"blk-sun-{i+1}") for i, b in enumerate(weekend_blocks)],
+                "monday": [],
+                "tuesday": [],
+                "wednesday": [],
+                "thursday": [],
+                "friday": [],
+                "saturday": [],
+                "sunday": [],
             }
         }
 

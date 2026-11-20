@@ -732,7 +732,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetch(`/api/sessions/${sessionId}/messages`);
       if (!response.ok) {
-        showToast('Could not load session history', 'warning');
+        localStorage.removeItem('synaptix_current_session_id');
+        currentSessionId = null;
+        if (chatMessages) chatMessages.innerHTML = '';
+        if (emptyStateContainer) emptyStateContainer.style.display = 'flex';
         return;
       }
       const data = await response.json();
@@ -2023,6 +2026,20 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         console.warn('Saved plan lookup skipped:', err);
       }
+
+      // If no saved plan exists and not forced, display clean empty state (zero auto-generation)
+      if (timetableContainer) {
+        timetableContainer.innerHTML = `
+          <div class="empty-state" style="padding: 24px 16px; text-align: center;">
+            <p style="color: var(--text-muted); margin-bottom: 12px;">No AI day plan generated for ${targetDate || 'today'} yet.</p>
+            <button type="button" class="primary-btn btn-sm" onclick="loadTimetable('${targetDate || ''}', true)">✦ Optimize / Plan My Day</button>
+          </div>
+        `;
+      }
+      if (timetableStatusBadge) timetableStatusBadge.textContent = '0 Meeting(s) • 0 Task(s)';
+      if (planTimestamp) planTimestamp.textContent = 'Awaiting generation';
+      loadPlanHistory();
+      return;
     }
 
     // 2. If not saved or explicitly regenerating: generate fresh & save in Firestore

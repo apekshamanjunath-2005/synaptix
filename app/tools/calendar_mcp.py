@@ -50,20 +50,8 @@ class CalendarMCPProvider:
                 except Exception as e:
                     logger.warning("Could not read calendar file: %s", e)
 
-            # Default initial calendar events for testing
-            today_str = date.today().strftime("%Y-%m-%d")
-            seed_id = "cal-101"
-            self._events = {
-                seed_id: {
-                    "id": seed_id,
-                    "summary": "AI Architecture & Sprint Sync",
-                    "start_time": f"{today_str}T10:00:00",
-                    "end_time": f"{today_str}T11:00:00",
-                    "description": "Weekly Synaptix multi-agent sprint review.",
-                    "location": "Google Meet",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                }
-            }
+            # Start with clean empty calendar (zero mock events)
+            self._events = {}
             self._persist()
 
     def _persist(self):

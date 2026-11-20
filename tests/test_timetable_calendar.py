@@ -34,8 +34,15 @@ class TestTimetableAndCalendar(unittest.TestCase):
         cls.token = create_session_token(user_id=cls.user_id, email="tt_tester@example.com", name="Timetable Tester")
         cls.headers = {"Authorization": f"Bearer {cls.token}"}
 
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            firestore_service.client.collection("timetables").document(cls.user_id).delete()
+        except Exception:
+            pass
+
     def test_01_get_default_timetable(self):
-        """GET /api/timetable returns weekly schedule with all 7 days."""
+        """GET /api/timetable returns weekly schedule with all 7 days initialized empty."""
         resp = self.client.get("/api/timetable", headers=self.headers)
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -45,7 +52,6 @@ class TestTimetableAndCalendar(unittest.TestCase):
         for d in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
             self.assertIn(d, days)
             self.assertIsInstance(days[d], list)
-            self.assertGreater(len(days[d]), 0)
 
     def test_02_get_timetable_with_day_filter(self):
         """GET /api/timetable?day=wednesday returns blocks for that specific day."""
