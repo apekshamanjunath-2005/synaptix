@@ -476,7 +476,7 @@ a {
 }
 
 .mobile-sidebar-toggle {
-  display: none;
+  display: none !important;
   position: fixed;
   top: 14px;
   left: 14px;
@@ -1630,9 +1630,10 @@ a {
 .sidebar-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
+.icon-btn,
 .reminder-bell-btn,
 .floating-bell-btn {
   position: relative;
@@ -1648,6 +1649,7 @@ a {
   transition: all 0.2s ease;
 }
 
+.icon-btn:hover,
 .reminder-bell-btn:hover,
 .floating-bell-btn:hover {
   border-color: rgba(255, 107, 61, 0.4);
@@ -1684,14 +1686,14 @@ a {
   top: 14px;
   right: 18px;
   z-index: 50;
-  display: none;
+  display: none !important;
   gap: 10px;
   align-items: center;
 }
 
 @media (max-width: 768px) {
   .floating-top-bar {
-    display: flex;
+    display: flex !important;
   }
 }
 

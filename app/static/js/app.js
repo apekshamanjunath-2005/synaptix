@@ -58,6 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
   let latestPlanMarkdown = '';
 
   // ══════════════════════════════════════════════════════════════════════════
+  // HELPER: HTML Escaping
+  // ══════════════════════════════════════════════════════════════════════════
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // 1. TOAST NOTIFICATION SYSTEM
   // ══════════════════════════════════════════════════════════════════════════
   function showToast(message, type = 'info', duration = 3500) {
@@ -1349,10 +1362,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const alertedReminderIds = new Set();
 
-  function requestNotificationPermission() {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+  function playReminderChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.46);
+    } catch (e) {
+      console.debug('Audio chime error:', e);
     }
+  }
+
+  function requestNotificationPermission() {
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            showToast('Desktop notifications enabled!', 'success');
+          }
+        }).catch(() => {});
+      }
+    }
+  }
+
+  // Request browser permission proactively on user interaction
+  document.addEventListener('click', requestNotificationPermission, { once: true });
+  if (userInput) {
+    userInput.addEventListener('focus', requestNotificationPermission, { once: true });
   }
 
   function formatReminderTime(isoStr) {
@@ -1481,6 +1527,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showReminderToast(reminder) {
+    // 1. Play subtle chime sound
+    playReminderChime();
+
+    // 2. Desktop Browser Notification
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification('⏰ Synaptix Reminder', {
+          body: reminder.title,
+          requireInteraction: true,
+        });
+      } catch (e) {
+        console.debug('Browser notification error:', e);
+      }
+    }
+
+    // 3. In-App Dark Aura Toast Alert
     if (!toastContainer) return;
     const existing = document.getElementById(`reminder-toast-${reminder.id}`);
     if (existing) return;
@@ -1513,17 +1575,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     toastContainer.appendChild(toast);
-
-    // Desktop Browser Notification
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        new Notification('⏰ Synaptix Reminder', {
-          body: reminder.title,
-        });
-      } catch (e) {
-        console.debug('Browser notification error:', e);
-      }
-    }
   }
 
   async function pollDueReminders() {
@@ -1623,8 +1674,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initial Reminders Load & Polling setup
+  // Initial Reminders Load & Polling setup (Poll every 10s for timely alerts)
   loadReminders();
   pollDueReminders();
-  setInterval(pollDueReminders, 30000);
+  setInterval(pollDueReminders, 10000);
 });
