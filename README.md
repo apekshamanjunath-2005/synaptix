@@ -17,7 +17,7 @@
 
 > 🚀 **Live Production Web App:** **[https://synaptix-2cb9.onrender.com/](https://synaptix-2cb9.onrender.com/)**  
 > *Experience Synaptix in real-time with Google OAuth 2.0 or 1-Click Instant Guest Mode.*
-> > **Note on Google Sign-In:** Synaptix uses Google's Gmail and Calendar OAuth scopes in unverified production mode (supporting up to 100 users). On your first sign-in, Google will display an *"App isn't verified"* warning—click **Advanced → Go to Synaptix (unsafe)** to grant permissions and test the live features. You can revoke access anytime from your [Google Account Permissions](https://myaccount.google.com/permissions).
+> > ****Note on Google Sign-In:**** Synaptix uses Google's Gmail and Calendar OAuth scopes in unverified production mode (supporting up to 100 users). On your first sign-in, Google will display an *"App isn't verified"* warning—click **Advanced → Go to Synaptix (unsafe)** to grant permissions and test the live features. You can revoke access anytime from your [Google Account Permissions](https://myaccount.google.com/permissions).
 
 ---
 
