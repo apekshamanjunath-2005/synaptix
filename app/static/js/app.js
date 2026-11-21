@@ -233,18 +233,53 @@ document.addEventListener('DOMContentLoaded', () => {
   if (howItWorksNavBtn) {
     howItWorksNavBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      // 1. Switch to AI Assistant tab if not already active
-      const chatBtn = document.querySelector('.nav-item[data-tab="chat"]');
-      if (chatBtn && !chatBtn.classList.contains('active')) {
-        chatBtn.click();
+
+      // 1. Close any open mobile drawer or sidebar
+      if (typeof closeSessionsDrawerFunc === 'function') {
+        closeSessionsDrawerFunc();
       }
-      // 2. Ensure howItWorksSection is visible & smoothly scroll down
-      const sec = document.getElementById('howItWorksSection');
+      if (sidebar) {
+        sidebar.classList.remove('mobile-open');
+        sidebar.classList.remove('drawer-open');
+      }
+
+      // 2. Switch to AI Assistant tab if not already active
+      const chatBtn = document.querySelector('.nav-item[data-tab="chat"]');
+      const chatPane = document.getElementById('tab-chat');
+      const allNavItems = document.querySelectorAll('.nav-item');
+      const allTabPanes = document.querySelectorAll('.tab-pane');
+
+      allNavItems.forEach((item) => item.classList.remove('active'));
+      allTabPanes.forEach((pane) => pane.classList.remove('active'));
+
+      if (chatBtn) chatBtn.classList.add('active');
+      if (chatPane) chatPane.classList.add('active');
+
+      const currentTabTitle = document.getElementById('currentTabTitle');
+      const currentTabDesc = document.getElementById('currentTabDesc');
+      if (currentTabTitle) currentTabTitle.textContent = 'AI Assistant';
+      if (currentTabDesc) currentTabDesc.textContent = 'Natural language multi-agent coordinator';
+
+      // 3. Ensure target section is visible and forced visible
+      const sec = document.getElementById('how-it-works') || document.getElementById('howItWorksSection');
       if (sec) {
-        sec.style.display = '';
+        sec.classList.add('force-visible');
+        sec.style.display = 'flex';
+
+        // 4. Smoothly scroll .main-content to the section accounting for fixed top navbar
         setTimeout(() => {
-          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 70);
+          const mainContent = document.querySelector('.main-content');
+          const navbar = document.getElementById('topNavbar');
+          const navbarHeight = navbar ? navbar.offsetHeight + 24 : 84;
+
+          if (mainContent) {
+            const secTopInContent = sec.offsetTop;
+            const targetScrollTop = Math.max(0, secTopInContent - navbarHeight);
+            mainContent.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+          } else {
+            sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 60);
       }
     });
   }
@@ -445,15 +480,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateChatDockState() {
     if (!chatContainer) return;
     const hasMessages = chatMessages && chatMessages.children.length > 0;
-    const howItWorksSection = document.getElementById('howItWorksSection');
+    const howItWorksSection = document.getElementById('how-it-works') || document.getElementById('howItWorksSection');
     if (hasMessages) {
       chatContainer.classList.remove('is-hero');
       chatContainer.classList.add('is-docked');
-      if (howItWorksSection) howItWorksSection.style.display = 'none';
+      if (howItWorksSection && !howItWorksSection.classList.contains('force-visible')) {
+        howItWorksSection.style.display = 'none';
+      }
     } else {
       chatContainer.classList.add('is-hero');
       chatContainer.classList.remove('is-docked');
-      if (howItWorksSection) howItWorksSection.style.display = '';
+      if (howItWorksSection) {
+        howItWorksSection.classList.remove('force-visible');
+        howItWorksSection.style.display = '';
+      }
     }
   }
 

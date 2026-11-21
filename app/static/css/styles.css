@@ -383,6 +383,10 @@ a {
   user-select: none;
 }
 
+.nav-label-mobile {
+  display: none;
+}
+
 .top-nav-center .nav-item:hover,
 .top-nav-center .nav-btn:hover,
 .nav-links .nav-item:hover,
@@ -1202,7 +1206,9 @@ a {
 /* ══════════════════════════════════════════════════════════════════════════
    7. "HOW SYNAPTIX WORKS" & AGENT DIRECTORY
    ══════════════════════════════════════════════════════════════════════════ */
-.how-it-works-section {
+.how-it-works-section,
+#how-it-works,
+#howItWorksSection {
   width: 100%;
   max-width: 860px;
   margin: 48px auto 32px auto;
@@ -1211,11 +1217,21 @@ a {
   flex-direction: column;
   gap: 28px;
   transition: opacity 0.3s ease, transform 0.3s ease;
+  scroll-margin-top: 84px;
 }
 
-.chat-container.is-docked .how-it-works-section,
-.chat-container.is-docked #howItWorksSection {
+.chat-container.is-docked .how-it-works-section:not(.force-visible),
+.chat-container.is-docked #howItWorksSection:not(.force-visible),
+.chat-container.is-docked #how-it-works:not(.force-visible) {
   display: none !important;
+}
+
+.how-it-works-section.force-visible,
+#how-it-works.force-visible,
+#howItWorksSection.force-visible {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .how-it-works-header {
@@ -3016,6 +3032,92 @@ a {
 }
 
 @media (max-width: 768px) {
+  /* Prevent 'Synaptix AI' and 'AI Assistant' collision/overlap */
+  .top-navbar {
+    width: calc(100% - 16px);
+    height: 52px;
+    padding: 0 10px;
+    margin: 8px auto 0 auto;
+    border-radius: var(--radius-lg);
+  }
+
+  .top-navbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .navbar-left {
+    flex-shrink: 0;
+    gap: 8px;
+    margin-right: 4px;
+  }
+
+  .brand {
+    gap: 6px;
+  }
+
+  .brand-monogram {
+    width: 28px;
+    height: 28px;
+  }
+
+  .brand-monogram svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .brand-title {
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .brand-badge {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+  }
+
+  /* Swap redundant 'AI Assistant' label to concise 'Chat' on mobile */
+  .nav-label-desktop {
+    display: none !important;
+  }
+
+  .nav-label-mobile {
+    display: inline !important;
+  }
+
+  .top-nav-center,
+  .nav-links,
+  .horizontal-nav {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    gap: 6px !important;
+    padding: 4px 2px !important;
+    justify-content: flex-start !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .top-nav-center .nav-item,
+  .top-nav-center .nav-btn,
+  .nav-links .nav-item,
+  .horizontal-nav .nav-item,
+  .horizontal-nav .nav-btn {
+    padding: 5px 12px !important;
+    font-size: 0.77rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .navbar-right {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+
   .stats-row {
     grid-template-columns: 1fr;
   }
@@ -3038,5 +3140,48 @@ a {
   }
   .main-content {
     padding: 12px 14px 28px 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra crisp mobile layout for 375px screens */
+  .top-navbar {
+    width: calc(100% - 10px);
+    height: 48px;
+    padding: 0 8px;
+    margin: 6px auto 0 auto;
+  }
+
+  .top-navbar-inner {
+    gap: 6px;
+  }
+
+  .navbar-left {
+    gap: 5px;
+    margin-right: 2px;
+  }
+
+  .brand-title {
+    font-size: 0.84rem;
+  }
+
+  /* On small screens under 480px, hide the secondary 'AI' badge to prevent word clutter */
+  .brand-badge {
+    display: none !important;
+  }
+
+  .top-nav-center .nav-item,
+  .top-nav-center .nav-btn,
+  .nav-links .nav-item {
+    padding: 4px 9px !important;
+    font-size: 0.74rem !important;
+  }
+
+  .navbar-right .navbar-history-pill span {
+    display: none !important;
+  }
+
+  .navbar-right .navbar-history-pill {
+    padding: 5px 7px !important;
   }
 }
