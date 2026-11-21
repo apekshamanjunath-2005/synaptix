@@ -165,16 +165,28 @@ def get_live_google_credentials(
         for env_key in ("GOOGLE_TOKEN_JSON", "GMAIL_TOKEN_JSON"):
             raw_env = os.getenv(env_key) or getattr(settings, env_key, None)
             if raw_env and raw_env.strip():
+                clean_env = raw_env.strip().strip("'").strip('"')
+                if clean_env.startswith("{\\") or '\\"' in clean_env:
+                    try:
+                        clean_env = clean_env.encode("utf-8").decode("unicode_escape")
+                    except Exception:
+                        pass
                 try:
-                    token_dict = json.loads(raw_env.strip())
-                    creds = _build_creds_from_dict(token_dict, req_scopes)
-                    if creds:
-                        creds, _ = refresh_credentials_in_memory(creds)
-                        if creds.valid:
-                            _cached_global_creds = creds
-                            _cached_global_source = env_key
-                            logger.info("Loaded live Google credentials from %s environment variable.", env_key)
-                            return creds, env_key
+                    token_dict = json.loads(clean_env)
+                    if isinstance(token_dict, str):
+                        try:
+                            token_dict = json.loads(token_dict)
+                        except Exception:
+                            pass
+                    if isinstance(token_dict, dict):
+                        creds = _build_creds_from_dict(token_dict, req_scopes)
+                        if creds:
+                            creds, _ = refresh_credentials_in_memory(creds)
+                            if creds.valid:
+                                _cached_global_creds = creds
+                                _cached_global_source = env_key
+                                logger.info("Loaded live Google credentials from %s environment variable.", env_key)
+                                return creds, env_key
                 except Exception as env_err:
                     logger.error("Failed parsing %s environment variable as JSON: %s", env_key, env_err)
 
