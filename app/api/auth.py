@@ -269,7 +269,34 @@ async def google_callback(
     tokens_to_save = dict(tokens)
     tokens_to_save["client_id"] = client_id
     tokens_to_save["client_secret"] = client_secret
+
+    # If Google did not return a new refresh_token, preserve existing one from Firestore
+    if not tokens_to_save.get("refresh_token"):
+        existing_tokens = firestore_service.get_user_tokens(user_id)
+        if existing_tokens and existing_tokens.get("refresh_token"):
+            tokens_to_save["refresh_token"] = existing_tokens["refresh_token"]
+
     firestore_service.save_user_tokens(user_id=user_id, tokens=tokens_to_save)
+
+    # Also persist to local token.json for easy copy/export to Render
+    try:
+        from pathlib import Path
+        local_token_file = Path(__file__).resolve().parent.parent.parent / "token.json"
+        token_export = {
+            "token": tokens.get("access_token"),
+            "refresh_token": tokens_to_save.get("refresh_token"),
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scopes": settings.GOOGLE_OAUTH_SCOPES,
+            "account": email,
+        }
+        if tokens.get("expires_in"):
+            token_export["expiry"] = (datetime.now(timezone.utc) + timedelta(seconds=int(tokens["expires_in"]))).isoformat()
+        local_token_file.write_text(json.dumps(token_export, indent=2), encoding="utf-8")
+        logger.info("Successfully saved fresh OAuth token to %s", local_token_file.name)
+    except Exception as tok_err:
+        logger.warning("Could not persist local token.json: %s", tok_err)
 
     profile_data = {
         "email": email,
