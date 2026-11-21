@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_ID: Optional[str] = None
     GOOGLE_CALENDAR_CLIENT_SECRET: Optional[str] = None
+    CLIENT_ID: Optional[str] = None
+    CLIENT_SECRET: Optional[str] = None
     BASE_URL: Optional[str] = None
     RENDER_EXTERNAL_URL: Optional[str] = None
     OAUTH_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
@@ -47,11 +49,121 @@ class Settings(BaseSettings):
 
     @property
     def effective_client_id(self) -> Optional[str]:
-        return self.GOOGLE_CLIENT_ID or self.GOOGLE_CALENDAR_CLIENT_ID
+        import os
+        # 1. Direct environment variable or Settings field
+        val = (
+            self.GOOGLE_CLIENT_ID
+            or self.GOOGLE_CALENDAR_CLIENT_ID
+            or self.CLIENT_ID
+            or os.getenv("GOOGLE_CLIENT_ID")
+            or os.getenv("GOOGLE_CALENDAR_CLIENT_ID")
+            or os.getenv("CLIENT_ID")
+            or os.getenv("GCP_CLIENT_ID")
+        )
+        if val and isinstance(val, str) and val.strip().strip('"').strip("'"):
+            return val.strip().strip('"').strip("'")
+
+        # 2. Extract from GOOGLE_TOKEN_JSON or GMAIL_TOKEN_JSON (for Render / cloud deploy)
+        for env_key in ("GOOGLE_TOKEN_JSON", "GMAIL_TOKEN_JSON"):
+            raw_token = os.getenv(env_key) or getattr(self, env_key, None)
+            if raw_token and isinstance(raw_token, str) and raw_token.strip():
+                try:
+                    import json
+                    parsed = json.loads(raw_token.strip())
+                    cid = (
+                        parsed.get("client_id")
+                        or parsed.get("web", {}).get("client_id")
+                        or parsed.get("installed", {}).get("client_id")
+                    )
+                    if cid and isinstance(cid, str) and cid.strip():
+                        return cid.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+        # 3. Extract from local token.json, credentials.json, or Render Secret Files on disk
+        for file_path in (
+            self.GOOGLE_TOKEN_PATH,
+            "token.json",
+            "credentials.json",
+            "/etc/secrets/token.json",
+            "/etc/secrets/google_token.json",
+            "/etc/secrets/credentials.json",
+        ):
+            if file_path and os.path.exists(file_path):
+                try:
+                    import json
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        parsed = json.load(f)
+                    cid = (
+                        parsed.get("client_id")
+                        or parsed.get("web", {}).get("client_id")
+                        or parsed.get("installed", {}).get("client_id")
+                    )
+                    if cid and isinstance(cid, str) and cid.strip():
+                        return cid.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+        return None
 
     @property
     def effective_client_secret(self) -> Optional[str]:
-        return self.GOOGLE_CLIENT_SECRET or self.GOOGLE_CALENDAR_CLIENT_SECRET
+        import os
+        # 1. Direct environment variable or Settings field
+        val = (
+            self.GOOGLE_CLIENT_SECRET
+            or self.GOOGLE_CALENDAR_CLIENT_SECRET
+            or self.CLIENT_SECRET
+            or os.getenv("GOOGLE_CLIENT_SECRET")
+            or os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET")
+            or os.getenv("CLIENT_SECRET")
+            or os.getenv("GCP_CLIENT_SECRET")
+        )
+        if val and isinstance(val, str) and val.strip().strip('"').strip("'"):
+            return val.strip().strip('"').strip("'")
+
+        # 2. Extract from GOOGLE_TOKEN_JSON or GMAIL_TOKEN_JSON (for Render / cloud deploy)
+        for env_key in ("GOOGLE_TOKEN_JSON", "GMAIL_TOKEN_JSON"):
+            raw_token = os.getenv(env_key) or getattr(self, env_key, None)
+            if raw_token and isinstance(raw_token, str) and raw_token.strip():
+                try:
+                    import json
+                    parsed = json.loads(raw_token.strip())
+                    sec = (
+                        parsed.get("client_secret")
+                        or parsed.get("web", {}).get("client_secret")
+                        or parsed.get("installed", {}).get("client_secret")
+                    )
+                    if sec and isinstance(sec, str) and sec.strip():
+                        return sec.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+        # 3. Extract from local token.json, credentials.json, or Render Secret Files on disk
+        for file_path in (
+            self.GOOGLE_TOKEN_PATH,
+            "token.json",
+            "credentials.json",
+            "/etc/secrets/token.json",
+            "/etc/secrets/google_token.json",
+            "/etc/secrets/credentials.json",
+        ):
+            if file_path and os.path.exists(file_path):
+                try:
+                    import json
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        parsed = json.load(f)
+                    sec = (
+                        parsed.get("client_secret")
+                        or parsed.get("web", {}).get("client_secret")
+                        or parsed.get("installed", {}).get("client_secret")
+                    )
+                    if sec and isinstance(sec, str) and sec.strip():
+                        return sec.strip().strip('"').strip("'")
+                except Exception:
+                    pass
+
+        return None
 
     # OpenWeatherMap API (Configured in Milestone 6)
     OPENWEATHERMAP_API_KEY: Optional[str] = None

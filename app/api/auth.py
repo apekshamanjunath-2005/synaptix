@@ -146,13 +146,15 @@ def get_redirect_uri(request: Optional[Request] = None) -> str:
 
 @router.get("/debug")
 async def auth_debug(request: Request):
-    """Diagnostic endpoint to inspect active OAuth redirect URI and proxy headers."""
+    """Diagnostic endpoint to inspect active OAuth redirect URI, credentials presence, and proxy headers."""
     return {
         "effective_redirect_uri": get_redirect_uri(request),
         "settings_oauth_redirect_uri": settings.OAUTH_REDIRECT_URI,
         "render_external_url": os.getenv("RENDER_EXTERNAL_URL"),
         "base_url": os.getenv("BASE_URL"),
         "client_id_configured": bool(settings.effective_client_id),
+        "client_secret_configured": bool(settings.effective_client_secret),
+        "google_token_json_configured": bool(os.getenv("GOOGLE_TOKEN_JSON") or settings.GOOGLE_TOKEN_JSON),
         "request_url": str(request.url),
         "headers": {
             "host": request.headers.get("host"),
@@ -170,9 +172,10 @@ async def login(request: Request):
     """
     client_id = settings.effective_client_id
     if not client_id:
+        logger.error("OAuth login failed: Google OAuth Client ID is not configured.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Google OAuth Client ID is not configured. Set GOOGLE_CLIENT_ID or GOOGLE_CALENDAR_CLIENT_ID in .env."
+            detail="Google OAuth Client ID is not configured. Set GOOGLE_CLIENT_ID in your Render Environment tab."
         )
 
     redirect_uri = get_redirect_uri(request)
@@ -214,9 +217,19 @@ async def google_callback(
     client_secret = settings.effective_client_secret
 
     if not client_id or not client_secret:
+        logger.error(
+            "OAuth callback error: client_id present=%s, client_secret present=%s",
+            bool(client_id),
+            bool(client_secret)
+        )
         raise HTTPException(
             status_code=500,
-            detail="Google OAuth Client ID or Client Secret missing in configuration."
+            detail=(
+                f"Google OAuth configuration incomplete. "
+                f"GOOGLE_CLIENT_ID present: {bool(client_id)}, "
+                f"GOOGLE_CLIENT_SECRET present: {bool(client_secret)}. "
+                f"Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render Environment tab."
+            )
         )
 
     # 1. Exchange authorization code for tokens

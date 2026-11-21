@@ -5,6 +5,7 @@ FastAPI Main Application Entrypoint
 
 from contextlib import asynccontextmanager
 import logging
+import os
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,11 +42,23 @@ async def lifespan(app: FastAPI):
     """
     settings = get_settings()
     logger.info("==================================================")
-    logger.info(" Starting Synaptix AI Assistant (Milestone 1)")
+    logger.info(" Starting Synaptix AI Assistant")
     logger.info(" Environment: %s", settings.ENVIRONMENT)
     logger.info(" Host: %s | Port: %d", settings.HOST, settings.PORT)
     logger.info(" Zero-Cost Policy: Active (₹0 Budget Enforced)")
     logger.info("==================================================")
+
+    # Safe Startup Diagnostics (Prints True/False, never secrets)
+    logger.info("--- Google OAuth & Integration Configuration ---")
+    logger.info("  GOOGLE_CLIENT_ID configured: %s", bool(settings.effective_client_id))
+    logger.info("  GOOGLE_CLIENT_SECRET configured: %s", bool(settings.effective_client_secret))
+    logger.info("  GOOGLE_TOKEN_JSON configured: %s", bool(os.getenv("GOOGLE_TOKEN_JSON") or settings.GOOGLE_TOKEN_JSON))
+    logger.info("  GEMINI_API_KEY configured: %s", bool(settings.GEMINI_API_KEY))
+    logger.info("  FIREBASE_CREDENTIALS configured: %s", bool(settings.FIREBASE_CREDENTIALS_JSON or settings.FIREBASE_CREDENTIALS_PATH))
+    logger.info("  RENDER_EXTERNAL_URL: %s", os.getenv("RENDER_EXTERNAL_URL") or "Not set")
+    logger.info("  BASE_URL: %s", os.getenv("BASE_URL") or settings.BASE_URL or "Not set")
+    logger.info("  OAUTH_REDIRECT_URI: %s", settings.OAUTH_REDIRECT_URI)
+    logger.info("------------------------------------------------")
     yield
     logger.info("Shutting down Synaptix AI Assistant. Goodbye!")
 

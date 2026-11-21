@@ -63,8 +63,8 @@ class CalendarMCPProvider:
 
     def _check_live_google_credentials(self):
         """Verify if live Google Calendar OAuth2 credentials exist."""
-        client_id = self.settings.GOOGLE_CALENDAR_CLIENT_ID
-        client_secret = self.settings.GOOGLE_CALENDAR_CLIENT_SECRET
+        client_id = self.settings.effective_client_id
+        client_secret = self.settings.effective_client_secret
         if client_id and client_secret:
             logger.info("Google Calendar OAuth credentials detected in configuration.")
             # When OAuth token file exists, can activate live Google Calendar API

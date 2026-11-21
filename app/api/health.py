@@ -41,9 +41,9 @@ async def get_health():
         "integrations_status": {
             "gemini_configured": bool(settings.GEMINI_API_KEY),
             "firebase_configured": bool(settings.FIREBASE_PROJECT_ID),
-            "google_calendar_configured": bool(settings.GOOGLE_CALENDAR_CLIENT_ID),
+            "google_calendar_configured": bool(settings.effective_client_id),
             "weather_configured": bool(settings.OPENWEATHERMAP_API_KEY),
-            "gmail_configured": bool(settings.GOOGLE_CALENDAR_CLIENT_ID),
+            "gmail_configured": bool(settings.effective_client_id),
         },
         "budget_telemetry": usage_tracker.get_stats(),
     }
