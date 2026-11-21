@@ -21,13 +21,21 @@
 
 ---
 
-## 📖 Overview
+## 💡 About Synaptix
 
-**Synaptix** is a production-grade, autonomous multi-agent personal productivity assistant. Built with **Google Gemini 2.5 Flash**, **Google ADK (Agent Development Kit)**, **FastAPI**, **Firebase Firestore**, **Model Context Protocol (MCP)**, **Google Calendar & Gmail APIs**, and **OpenWeatherMap**, Synaptix acts as your proactive Chief of Staff.
+### The Problem
+Modern knowledge workers and students constantly juggle between multiple disconnected productivity silos: **Google Calendar** for meetings, **Gmail** for correspondence, **task managers** for action items, **note apps** for ideas, and **weather apps** for scheduling outdoor activities. 
 
-Unlike simple chatbots, Synaptix decomposes complex real-world prompts, coordinates specialist autonomous agents in parallel, and executes real actions—from managing Firestore task backlogs to checking Google Calendar conflicts and composing email drafts with strict **Human-in-the-Loop** verification.
+Traditional single-prompt AI chatbots can write advice, but they cannot take deterministic real-world actions, detect calendar conflicts, or safely dispatch emails without risk of hallucination.
 
-Designed with an **Editorial Warm Dark aesthetic** inspired by Lindy and Linear, Synaptix features a floating pill navigation bar, champagne-gold composer card, gliding specialist agent directory, interactive monthly calendar grid, and an editable daily/weekly timetable optimizer.
+### The Solution
+**Synaptix** is an autonomous, multi-agent personal productivity assistant that acts as your proactive **Chief of Staff**. Built with **Google Gemini 2.5 Flash** and the **Google ADK (Agent Development Kit)**, Synaptix unifies planning, communication, and execution into one cohesive, living workspace:
+
+- 🧠 **Autonomous Intent Routing:** You talk naturally in plain English ("*I have a team sync tomorrow at 11 AM and need to prepare investor slides, draft an email to David with project notes, and plan my day*"). The **Coordinator Agent** automatically breaks down the prompt and dispatches sub-tasks to the appropriate specialist agents in parallel.
+- 🛡️ **Human-in-the-Loop Safety:** Sensitive actions like sending emails never occur without explicit user verification. The **Gmail Agent** generates contextual preview cards (`Draft -> Approve -> Send`), ensuring total control.
+- ☀️ **Holistic Day Planning:** The **Smart Day Planner** synthesizes pending tasks, calendar commitments, weather advisories, and your recurring routine blocks into an optimal, conflict-free schedule.
+- 🎨 **Editorial Warm Dark Aesthetic:** Inspired by Lindy and Linear, the interface uses an Obsidian & Champagne-Gold palette (`#0D0D0F`, `#D4AF6A`) with glassmorphic top navigation, a gliding live agent marquee, and date-aware calendar grids.
+- 👥 **Zero-Barrier Access:** Supports multi-user Google OAuth 2.0 with isolated Firestore databases, plus an instant 1-click **Guest Mode** for friction-free evaluation.
 
 ---
 
