@@ -11,13 +11,13 @@
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Google Gemini" />
   <img src="https://img.shields.io/badge/Google%20ADK-Multi--Agent-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google ADK" />
-  <img src="https://img.shields.io/badge/Tests-14%2F14%20Passing-success?style=for-the-badge&logo=pytest&logoColor=white" alt="14 Suites Passing" />
 </p>
 
 ---
 
 > 🚀 **Live Production Web App:** **[https://synaptix-2cb9.onrender.com/](https://synaptix-2cb9.onrender.com/)**  
 > *Experience Synaptix in real-time with Google OAuth 2.0 or 1-Click Instant Guest Mode.*
+> > **Note on Google Sign-In:** Synaptix uses Google's Gmail and Calendar OAuth scopes in unverified production mode (supporting up to 100 users). On your first sign-in, Google will display an *"App isn't verified"* warning—click **Advanced → Go to Synaptix (unsafe)** to grant permissions and test the live features. You can revoke access anytime from your [Google Account Permissions](https://myaccount.google.com/permissions).
 
 ---
 
