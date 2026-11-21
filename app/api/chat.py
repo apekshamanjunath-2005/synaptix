@@ -4,6 +4,8 @@ Routes natural language user requests through the Coordinator Agent
 and specialized agents using Google ADK.
 """
 
+import uuid
+import logging
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -13,6 +15,8 @@ from app.api.auth import get_current_user
 from app.agents.context import set_user_context
 from app.core.usage_tracker import verify_budget_quota
 from app.database.firestore import firestore_service
+
+logger = logging.getLogger("synaptix.chat")
 
 router = APIRouter(prefix="/api", tags=["Multi-Agent Chat"])
 
@@ -58,73 +62,105 @@ async def chat_endpoint(
     Delegates to TaskAgent, NotesAgent, CalendarAgent, GmailAgent, or SmartDayPlannerAgent.
     Protected by daily ₹0 quota limits and scoped to active authenticated user.
     """
-    uid = current_user.get("user_id", "default_user")
-    uname = current_user.get("name")
-    uemail = current_user.get("email")
+    try:
+        uid = current_user.get("user_id", "default_user")
+        uname = current_user.get("name")
+        uemail = current_user.get("email")
 
-    set_user_context(user_id=uid, name=uname, email=uemail, timezone=request.timezone)
+        set_user_context(user_id=uid, name=uname, email=uemail, timezone=request.timezone)
 
-    # 1. Resolve or initialize persistent chat session
-    incoming_sid = request.session_id.strip() if request.session_id else None
-    if incoming_sid:
-        session_obj = firestore_service.create_or_get_session(
+        # 1. Resolve or initialize persistent chat session
+        incoming_sid = request.session_id.strip() if request.session_id else None
+        if incoming_sid:
+            try:
+                session_obj = firestore_service.create_or_get_session(
+                    user_id=uid,
+                    session_id=incoming_sid,
+                    title=request.message[:40]
+                )
+                effective_sid = session_obj["session_id"]
+            except Exception as s_err:
+                logger.warning("Session resolution fallback: %s", s_err)
+                effective_sid = incoming_sid
+        else:
+            auto_title = request.message.strip()[:40]
+            if len(request.message.strip()) > 40:
+                auto_title += "..."
+            try:
+                session_obj = firestore_service.create_or_get_session(
+                    user_id=uid,
+                    session_id=None,
+                    title=auto_title or "New Chat"
+                )
+                effective_sid = session_obj["session_id"]
+            except Exception as s_err:
+                logger.warning("Session create fallback: %s", s_err)
+                effective_sid = f"sess-{uuid.uuid4().hex[:8]}"
+
+        # 2. Persist incoming user message to Firestore subcollection
+        try:
+            firestore_service.add_message_to_session(
+                session_id=effective_sid,
+                role="user",
+                content=request.message,
+                user_id=uid
+            )
+        except Exception as msg_err:
+            logger.warning("Could not persist user message to session: %s", msg_err)
+
+        # 3. Load sliding window (last 10 messages) for multi-turn context
+        recent_history = []
+        try:
+            recent_history = firestore_service.get_session_messages(
+                session_id=effective_sid,
+                limit=10,
+                user_id=uid
+            )
+        except Exception as hist_err:
+            logger.warning("Could not load session history: %s", hist_err)
+
+        # 4. Execute multi-agent orchestration
+        result = await orchestrator.run_workflow(
+            user_input=request.message,
+            session_id=effective_sid,
             user_id=uid,
-            session_id=incoming_sid,
-            title=request.message[:40]
+            user_name=uname,
+            user_email=uemail,
+            user_tz=request.timezone,
+            conversation_history=recent_history,
+            target_agent=request.target_agent,
         )
-        effective_sid = session_obj["session_id"]
-    else:
-        auto_title = request.message.strip()[:40]
-        if len(request.message.strip()) > 40:
-            auto_title += "..."
-        session_obj = firestore_service.create_or_get_session(
-            user_id=uid,
-            session_id=None,
-            title=auto_title or "New Chat"
+
+        assistant_reply = result.get("reply", "Coordinator completed the task.")
+
+        # 5. Persist assistant response to Firestore subcollection
+        try:
+            firestore_service.add_message_to_session(
+                session_id=effective_sid,
+                role="assistant",
+                content=assistant_reply,
+                user_id=uid
+            )
+        except Exception as ast_err:
+            logger.warning("Could not persist assistant message to session: %s", ast_err)
+
+        return ChatResponse(
+            reply=assistant_reply,
+            model=result.get("model", "gemini-2.5-flash"),
+            session_id=effective_sid,
+            orchestration=result.get("orchestration"),
+            budget_telemetry=result.get("budget_telemetry"),
         )
-        effective_sid = session_obj["session_id"]
-
-    # 2. Persist incoming user message to Firestore subcollection
-    firestore_service.add_message_to_session(
-        session_id=effective_sid,
-        role="user",
-        content=request.message,
-        user_id=uid
-    )
-
-    # 3. Load sliding window (last 10 messages) for multi-turn context
-    recent_history = firestore_service.get_session_messages(
-        session_id=effective_sid,
-        limit=10,
-        user_id=uid
-    )
-
-    # 4. Execute multi-agent orchestration
-    result = await orchestrator.run_workflow(
-        user_input=request.message,
-        session_id=effective_sid,
-        user_id=uid,
-        user_name=uname,
-        user_email=uemail,
-        user_tz=request.timezone,
-        conversation_history=recent_history,
-        target_agent=request.target_agent,
-    )
-
-    assistant_reply = result.get("reply", "Coordinator completed the task.")
-
-    # 5. Persist assistant response to Firestore subcollection
-    firestore_service.add_message_to_session(
-        session_id=effective_sid,
-        role="assistant",
-        content=assistant_reply,
-        user_id=uid
-    )
-
-    return ChatResponse(
-        reply=assistant_reply,
-        model=result.get("model", "gemini-2.5-flash"),
-        session_id=effective_sid,
-        orchestration=result.get("orchestration"),
-        budget_telemetry=result.get("budget_telemetry"),
-    )
+    except Exception as exc:
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error("CRITICAL error in /api/chat:\n%s", tb_str)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": f"Processing error: {str(exc)}",
+                "error": str(exc),
+                "type": type(exc).__name__,
+                "traceback": tb_str.splitlines()[-4:] if tb_str else []
+            }
+        )

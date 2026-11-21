@@ -46,7 +46,15 @@ def _build_creds_from_dict(token_data: Dict[str, Any], scopes: Optional[List[str
     client_id = data.get("client_id") or settings.effective_client_id
     client_secret = data.get("client_secret") or settings.effective_client_secret
     token_uri = data.get("token_uri") or "https://oauth2.googleapis.com/token"
-    token_scopes = data.get("scopes") or scopes or settings.GOOGLE_OAUTH_SCOPES
+
+    # Standardize scopes: handle scope string (space-separated) vs scopes list
+    raw_scopes = data.get("scopes") or data.get("scope") or scopes or settings.GOOGLE_OAUTH_SCOPES
+    if isinstance(raw_scopes, str):
+        token_scopes = raw_scopes.split()
+    elif isinstance(raw_scopes, list):
+        token_scopes = raw_scopes
+    else:
+        token_scopes = settings.GOOGLE_OAUTH_SCOPES
 
     data["client_id"] = client_id
     data["client_secret"] = client_secret

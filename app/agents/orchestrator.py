@@ -355,7 +355,7 @@ class MultiAgentOrchestrator:
             # Check for explicit user approval to send an existing draft
             if any(kw in lower for kw in ["approve and send", "approve draft", "send the draft", "approved send", "approve", "send it", "looks good send", "send draft"]):
                 import re
-                match = re.search(r"draft-[a-f0-9]+", lower)
+                match = re.search(r"(?:draft-[a-f0-9]+|r-?[0-9]+)", lower)
                 draft_id = match.group(0) if match else None
                 if not draft_id:
                     drafts_data = json.loads(email_draft_list())

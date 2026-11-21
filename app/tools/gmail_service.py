@@ -389,6 +389,16 @@ class GmailService:
                         "is_live_gmail": True,
                     }
 
+            # If draft was not found in local memory or Gmail
+            logger.warning("Draft %s not found in active store for user %s", draft_id_clean, uid)
+            return {
+                "draft_id": draft_id_clean,
+                "sent": False,
+                "status": "not_found",
+                "error": f"Draft '{draft_id_clean}' was not found. Please ask Synaptix to draft a new email to send.",
+                "is_live_gmail": True,
+            }
+
         # 3. PRODUCTION FAILURE SURFACING: Refuse silent offline fake sends
         logger.error("Cannot send email draft %s: Live Gmail is not connected for user %s.", draft_id_clean, uid)
         return {

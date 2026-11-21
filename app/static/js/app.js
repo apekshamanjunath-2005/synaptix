@@ -572,16 +572,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawText = await response.text();
             try {
               const errJson = JSON.parse(rawText);
-              errMsg = (errJson.detail && (errJson.detail.message || errJson.detail)) || errJson.message || errMsg;
+              if (errJson.detail) {
+                if (typeof errJson.detail === 'string') {
+                  errMsg = errJson.detail;
+                } else if (typeof errJson.detail === 'object') {
+                  errMsg = errJson.detail.message || errJson.detail.error || JSON.stringify(errJson.detail);
+                }
+              } else if (errJson.message) {
+                errMsg = errJson.message;
+              } else if (errJson.error) {
+                errMsg = errJson.error;
+              }
             } catch {
-              if (rawText && !rawText.includes('Traceback') && !rawText.includes('File ') && !rawText.includes('<html')) {
-                errMsg = rawText.slice(0, 150);
+              if (rawText && !rawText.includes('<html')) {
+                errMsg = rawText.slice(0, 200);
               }
             }
-          } catch {}
-
-          if (typeof errMsg === 'string' && (errMsg.includes('Traceback') || errMsg.includes('SyntaxError') || errMsg.includes('UnboundLocalError') || errMsg.includes('Internal Server Error'))) {
-            errMsg = 'An internal error occurred while processing your request. Please try again.';
+          } catch (e) {
+            console.error('Error parsing response error:', e);
           }
 
           appendMessage(
