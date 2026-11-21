@@ -67,16 +67,28 @@ class Settings(BaseSettings):
         for env_key in ("GOOGLE_TOKEN_JSON", "GMAIL_TOKEN_JSON"):
             raw_token = os.getenv(env_key) or getattr(self, env_key, None)
             if raw_token and isinstance(raw_token, str) and raw_token.strip():
+                clean_token = raw_token.strip().strip("'").strip('"')
+                if clean_token.startswith("{\\") or '\\"' in clean_token:
+                    try:
+                        clean_token = clean_token.encode("utf-8").decode("unicode_escape")
+                    except Exception:
+                        pass
                 try:
                     import json
-                    parsed = json.loads(raw_token.strip())
-                    cid = (
-                        parsed.get("client_id")
-                        or parsed.get("web", {}).get("client_id")
-                        or parsed.get("installed", {}).get("client_id")
-                    )
-                    if cid and isinstance(cid, str) and cid.strip():
-                        return cid.strip().strip('"').strip("'")
+                    parsed = json.loads(clean_token)
+                    if isinstance(parsed, str):
+                        try:
+                            parsed = json.loads(parsed)
+                        except Exception:
+                            pass
+                    if isinstance(parsed, dict):
+                        cid = (
+                            parsed.get("client_id")
+                            or parsed.get("web", {}).get("client_id")
+                            or parsed.get("installed", {}).get("client_id")
+                        )
+                        if cid and isinstance(cid, str) and cid.strip():
+                            return cid.strip().strip('"').strip("'")
                 except Exception:
                     pass
 
@@ -94,13 +106,14 @@ class Settings(BaseSettings):
                     import json
                     with open(file_path, "r", encoding="utf-8") as f:
                         parsed = json.load(f)
-                    cid = (
-                        parsed.get("client_id")
-                        or parsed.get("web", {}).get("client_id")
-                        or parsed.get("installed", {}).get("client_id")
-                    )
-                    if cid and isinstance(cid, str) and cid.strip():
-                        return cid.strip().strip('"').strip("'")
+                    if isinstance(parsed, dict):
+                        cid = (
+                            parsed.get("client_id")
+                            or parsed.get("web", {}).get("client_id")
+                            or parsed.get("installed", {}).get("client_id")
+                        )
+                        if cid and isinstance(cid, str) and cid.strip():
+                            return cid.strip().strip('"').strip("'")
                 except Exception:
                     pass
 
@@ -126,16 +139,28 @@ class Settings(BaseSettings):
         for env_key in ("GOOGLE_TOKEN_JSON", "GMAIL_TOKEN_JSON"):
             raw_token = os.getenv(env_key) or getattr(self, env_key, None)
             if raw_token and isinstance(raw_token, str) and raw_token.strip():
+                clean_token = raw_token.strip().strip("'").strip('"')
+                if clean_token.startswith("{\\") or '\\"' in clean_token:
+                    try:
+                        clean_token = clean_token.encode("utf-8").decode("unicode_escape")
+                    except Exception:
+                        pass
                 try:
                     import json
-                    parsed = json.loads(raw_token.strip())
-                    sec = (
-                        parsed.get("client_secret")
-                        or parsed.get("web", {}).get("client_secret")
-                        or parsed.get("installed", {}).get("client_secret")
-                    )
-                    if sec and isinstance(sec, str) and sec.strip():
-                        return sec.strip().strip('"').strip("'")
+                    parsed = json.loads(clean_token)
+                    if isinstance(parsed, str):
+                        try:
+                            parsed = json.loads(parsed)
+                        except Exception:
+                            pass
+                    if isinstance(parsed, dict):
+                        sec = (
+                            parsed.get("client_secret")
+                            or parsed.get("web", {}).get("client_secret")
+                            or parsed.get("installed", {}).get("client_secret")
+                        )
+                        if sec and isinstance(sec, str) and sec.strip():
+                            return sec.strip().strip('"').strip("'")
                 except Exception:
                     pass
 
@@ -153,13 +178,14 @@ class Settings(BaseSettings):
                     import json
                     with open(file_path, "r", encoding="utf-8") as f:
                         parsed = json.load(f)
-                    sec = (
-                        parsed.get("client_secret")
-                        or parsed.get("web", {}).get("client_secret")
-                        or parsed.get("installed", {}).get("client_secret")
-                    )
-                    if sec and isinstance(sec, str) and sec.strip():
-                        return sec.strip().strip('"').strip("'")
+                    if isinstance(parsed, dict):
+                        sec = (
+                            parsed.get("client_secret")
+                            or parsed.get("web", {}).get("client_secret")
+                            or parsed.get("installed", {}).get("client_secret")
+                        )
+                        if sec and isinstance(sec, str) and sec.strip():
+                            return sec.strip().strip('"').strip("'")
                 except Exception:
                     pass
 
