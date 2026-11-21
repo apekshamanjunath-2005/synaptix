@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=8.0">
+  <link rel="stylesheet" href="/static/css/styles.css?v=9.0">
 </head>
 <body>
   <!-- Living Ambient Background (GPU-Accelerated Drifting Orbs, Grid & Cursor Spotlight) -->
@@ -237,6 +237,23 @@
             </p>
           </div>
 
+          <!-- Active Conversation Header Toolbar with Back to Home Button -->
+          <div class="chat-active-toolbar" id="chatActiveToolbar" style="display: none;">
+            <button type="button" class="chat-back-btn" id="chatBackBtn" title="Back to Home Overview">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              <span>Back to Home</span>
+            </button>
+            <div class="chat-active-indicator" id="chatActiveIndicator">
+              <span class="active-pulse-dot"></span>
+              <span class="chat-active-label" id="chatActiveLabel">Active Conversation</span>
+            </div>
+            <button type="button" class="chat-toolbar-new-btn" id="toolbarNewChatBtn" title="Start new conversation">
+              <span>+ New Chat</span>
+            </button>
+          </div>
+
           <!-- Chat Messages (Scrollable conversation stream) -->
           <div class="chat-messages" id="chatMessages"></div>
 
@@ -261,6 +278,7 @@
                   
                   <div class="prompt-bottom-bar composer-input-bottom">
                     <div class="prompt-chips">
+                      <button type="button" class="chip chip-back" id="promptBackBtn" title="Back to Home Overview" style="display: none;">← Home</button>
                       <button type="button" class="chip chip-clear" id="clearChatBtn" title="Clear conversation">🗑️</button>
                     </div>
 
@@ -1096,6 +1114,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=8.0"></script>
+  <script src="/static/js/app.js?v=9.0"></script>
 </body>
 </html>

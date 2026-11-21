@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const chips = document.querySelectorAll('.chip[data-prompt]');
   const sendBtn = document.getElementById('sendBtn');
   const clearChatBtn = document.getElementById('clearChatBtn');
+  const chatBackBtn = document.getElementById('chatBackBtn');
+  const chatActiveToolbar = document.getElementById('chatActiveToolbar');
+  const toolbarNewChatBtn = document.getElementById('toolbarNewChatBtn');
+  const promptBackBtn = document.getElementById('promptBackBtn');
   const copyPlanBtn = document.getElementById('copyPlanBtn');
   const toastContainer = document.getElementById('toastContainer');
 
@@ -190,6 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetTab = btn.getAttribute('data-tab');
       if (!targetTab) return;
 
+      if (targetTab === 'chat' && chatContainer && chatContainer.classList.contains('is-docked')) {
+        returnToHomeView();
+        return;
+      }
+
       navItems.forEach((item) => item.classList.remove('active'));
       tabPanes.forEach((pane) => pane.classList.remove('active'));
 
@@ -243,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebar.classList.remove('drawer-open');
       }
 
-      // 2. Switch to AI Assistant tab if not already active
+      // 2. Switch to AI Assistant / Home tab from ANY view
       const chatBtn = document.querySelector('.nav-item[data-tab="chat"]');
       const chatPane = document.getElementById('tab-chat');
       const allNavItems = document.querySelectorAll('.nav-item');
@@ -260,26 +269,43 @@ document.addEventListener('DOMContentLoaded', () => {
       if (currentTabTitle) currentTabTitle.textContent = 'AI Assistant';
       if (currentTabDesc) currentTabDesc.textContent = 'Natural language multi-agent coordinator';
 
-      // 3. Ensure target section is visible and forced visible
+      // 3. Ensure chatContainer exits docked state so the Home hero and natural page flow are restored
+      if (chatContainer) {
+        chatContainer.classList.remove('is-docked');
+        chatContainer.classList.add('is-hero');
+      }
+      const chatHero = document.getElementById('chatHero');
+      if (chatHero) {
+        chatHero.style.display = '';
+      }
+      if (chatActiveToolbar) chatActiveToolbar.style.display = 'none';
+      if (promptBackBtn) promptBackBtn.style.display = 'none';
+
+      // 4. Ensure How it works section is unhidden and visible
       const sec = document.getElementById('how-it-works') || document.getElementById('howItWorksSection');
       if (sec) {
+        sec.classList.remove('hidden');
         sec.classList.add('force-visible');
         sec.style.display = 'flex';
+        sec.style.visibility = 'visible';
+        sec.style.opacity = '1';
 
-        // 4. Smoothly scroll .main-content to the section accounting for fixed top navbar
+        // 5. Smoothly scroll .main-content to the section accounting for fixed top navbar
         setTimeout(() => {
           const mainContent = document.querySelector('.main-content');
           const navbar = document.getElementById('topNavbar');
-          const navbarHeight = navbar ? navbar.offsetHeight + 24 : 84;
+          const navbarHeight = navbar ? navbar.offsetHeight + 18 : 84;
 
           if (mainContent) {
-            const secTopInContent = sec.offsetTop;
-            const targetScrollTop = Math.max(0, secTopInContent - navbarHeight);
+            const mainRect = mainContent.getBoundingClientRect();
+            const secRect = sec.getBoundingClientRect();
+            const relativeTop = secRect.top - mainRect.top + mainContent.scrollTop;
+            const targetScrollTop = Math.max(0, relativeTop - navbarHeight);
             mainContent.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
           } else {
             sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        }, 60);
+        }, 50);
       }
     });
   }
@@ -487,6 +513,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (howItWorksSection && !howItWorksSection.classList.contains('force-visible')) {
         howItWorksSection.style.display = 'none';
       }
+      if (chatActiveToolbar) chatActiveToolbar.style.display = 'flex';
+      if (promptBackBtn) promptBackBtn.style.display = 'inline-flex';
     } else {
       chatContainer.classList.add('is-hero');
       chatContainer.classList.remove('is-docked');
@@ -494,6 +522,57 @@ document.addEventListener('DOMContentLoaded', () => {
         howItWorksSection.classList.remove('force-visible');
         howItWorksSection.style.display = '';
       }
+      if (chatActiveToolbar) chatActiveToolbar.style.display = 'none';
+      if (promptBackBtn) promptBackBtn.style.display = 'none';
+    }
+  }
+
+  function returnToHomeView() {
+    if (chatContainer) {
+      chatContainer.classList.remove('is-docked');
+      chatContainer.classList.add('is-hero');
+    }
+    const chatHero = document.getElementById('chatHero');
+    if (chatHero) {
+      chatHero.style.display = '';
+      chatHero.style.opacity = '';
+      chatHero.style.maxHeight = '';
+      chatHero.style.transform = '';
+    }
+    const howItWorks = document.getElementById('how-it-works') || document.getElementById('howItWorksSection');
+    if (howItWorks) {
+      howItWorks.classList.remove('force-visible');
+      howItWorks.style.display = '';
+      howItWorks.style.opacity = '';
+      howItWorks.style.visibility = '';
+    }
+    if (chatActiveToolbar) chatActiveToolbar.style.display = 'none';
+    if (promptBackBtn) promptBackBtn.style.display = 'none';
+
+    // Ensure AI Assistant nav tab is active
+    const chatBtn = document.querySelector('.nav-item[data-tab="chat"]');
+    const chatPane = document.getElementById('tab-chat');
+    const allNavItems = document.querySelectorAll('.nav-item');
+    const allTabPanes = document.querySelectorAll('.tab-pane');
+    allNavItems.forEach((item) => item.classList.remove('active'));
+    allTabPanes.forEach((pane) => pane.classList.remove('active'));
+    if (chatBtn) chatBtn.classList.add('active');
+    if (chatPane) chatPane.classList.add('active');
+
+    const currentTabTitle = document.getElementById('currentTabTitle');
+    const currentTabDesc = document.getElementById('currentTabDesc');
+    if (currentTabTitle) currentTabTitle.textContent = 'AI Assistant';
+    if (currentTabDesc) currentTabDesc.textContent = 'Natural language multi-agent coordinator';
+
+    // Scroll cleanly to the very top (0, 0)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    if (window.history && window.history.pushState) {
+      window.history.pushState({ view: 'home' }, '', window.location.pathname);
     }
   }
 
@@ -857,6 +936,44 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Conversation cleared', 'info');
     });
   }
+
+  // Active Chat Back to Home Buttons
+  if (chatBackBtn) {
+    chatBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      returnToHomeView();
+    });
+  }
+
+  if (promptBackBtn) {
+    promptBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      returnToHomeView();
+    });
+  }
+
+  if (toolbarNewChatBtn) {
+    toolbarNewChatBtn.addEventListener('click', () => {
+      startNewChat();
+      showToast('New conversation started', 'info');
+    });
+  }
+
+  // Synaptix Brand Logo click returns to Home overview
+  const brandLogo = document.querySelector('.brand');
+  if (brandLogo) {
+    brandLogo.style.cursor = 'pointer';
+    brandLogo.addEventListener('click', () => {
+      returnToHomeView();
+    });
+  }
+
+  // Browser Back/Forward navigation listener
+  window.addEventListener('popstate', (e) => {
+    if (chatContainer && chatContainer.classList.contains('is-docked')) {
+      returnToHomeView();
+    }
+  });
 
   // Copy Plan Button Handler
   if (copyPlanBtn) {
