@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     SESSION_SECRET_KEY: str = "synaptix-secret-session-key-change-in-production-123456789"
     MOCK_MODE: bool = False
     GOOGLE_TOKEN_PATH: str = "token.json"
+    GOOGLE_TOKEN_JSON: Optional[str] = None
+    GMAIL_TOKEN_JSON: Optional[str] = None
     GOOGLE_OAUTH_SCOPES: list[str] = [
         "openid",
         "https://www.googleapis.com/auth/userinfo.email",

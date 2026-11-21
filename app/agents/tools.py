@@ -442,9 +442,18 @@ def email_draft_send(draft_id: str) -> str:
     try:
         uid = current_user_id.get("default_user")
         result = gmail_service.send_email_draft(draft_id=draft_id, user_id=uid)
-        return json.dumps({"success": result.get("sent", False), "action": "draft_sent", "result": result})
+        is_sent = result.get("sent", False)
+        if not is_sent:
+            err = result.get("error", "Failed to dispatch email via Gmail API.")
+            return json.dumps({
+                "success": False,
+                "action": "draft_send_failed",
+                "error": err,
+                "result": result
+            })
+        return json.dumps({"success": True, "action": "draft_sent", "result": result})
     except Exception as exc:
-        logger.error("Error sending email draft %s: %s", draft_id, exc)
+        logger.error("Error sending email draft %s: %s", draft_id, exc, exc_info=True)
         return json.dumps({"success": False, "error": str(exc)})
 
 

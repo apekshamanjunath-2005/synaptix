@@ -24,6 +24,13 @@ class SendDraftRequest(BaseModel):
     draft_id: str = Field(..., description="Draft identifier to dispatch")
 
 
+@router.get("/status")
+async def get_gmail_status(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    """Diagnostic endpoint checking active Gmail API connection and credentials status."""
+    uid = current_user.get("user_id", "default_user") if current_user else "default_user"
+    return gmail_service.get_connection_status(user_id=uid)
+
+
 @router.get("/drafts")
 async def list_drafts(current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """List email drafts for current user."""

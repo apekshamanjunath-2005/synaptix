@@ -74,42 +74,17 @@ class CalendarMCPProvider:
             logger.info("Running Calendar MCP with local persistent calendar store (₹0 Free Tier Mode).")
 
     def get_user_calendar_client(self, user_id: Optional[str] = None):
-        """Dynamically load Google Calendar client from user's Firestore OAuth tokens."""
+        """Dynamically load Google Calendar client with in-memory token refresh."""
         target_uid = user_id or current_user_id.get("default_user")
-        if target_uid and target_uid != "default_user":
+        from app.tools.google_auth_helper import get_live_google_credentials
+        CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+        creds, source = get_live_google_credentials(target_uid, CALENDAR_SCOPES)
+        if creds and creds.valid:
             try:
-                from app.database.firestore import firestore_service
-                tokens = firestore_service.get_user_tokens(target_uid)
-                if tokens:
-                    from google.oauth2.credentials import Credentials
-                    from google.auth.transport.requests import Request
-                    from googleapiclient.discovery import build
-
-                    client_id = tokens.get("client_id") or self.settings.effective_client_id
-                    client_secret = tokens.get("client_secret") or self.settings.effective_client_secret
-                    creds = Credentials(
-                        token=tokens.get("access_token"),
-                        refresh_token=tokens.get("refresh_token"),
-                        token_uri="https://oauth2.googleapis.com/token",
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        scopes=self.settings.GOOGLE_OAUTH_SCOPES,
-                    )
-                    if creds and creds.expired and creds.refresh_token:
-                        try:
-                            creds.refresh(Request())
-                            updated_tokens = dict(tokens)
-                            updated_tokens["access_token"] = creds.token
-                            if creds.expiry:
-                                updated_tokens["expires_at"] = creds.expiry.isoformat()
-                            firestore_service.save_user_tokens(target_uid, updated_tokens)
-                        except Exception as ref_err:
-                            logger.warning("Failed refreshing calendar token for user %s: %s", target_uid, ref_err)
-
-                    if creds and creds.valid:
-                        return build("calendar", "v3", credentials=creds)
+                from googleapiclient.discovery import build
+                return build("calendar", "v3", credentials=creds)
             except Exception as exc:
-                logger.warning("Could not build live Calendar client for user %s: %s", target_uid, exc)
+                logger.warning("Could not build live Calendar client from %s: %s", source, exc)
         return None
 
     # ────────────────────────────────────────────────────────────────────────────

@@ -1,13 +1,16 @@
 """
 Gmail Service & Adapter for Synaptix Personal Productivity Assistant
 Provides draft creation and sending with Human-in-the-Loop review gates.
-Supports multi-user OAuth token loading dynamically from Firestore.
+Supports multi-user OAuth token loading dynamically from Firestore,
+Render environment variables (GOOGLE_TOKEN_JSON / GMAIL_TOKEN_JSON),
+and Render Secret Files (/etc/secrets/token.json) with automatic in-memory token refresh.
 
 Features:
 - Live Google Gmail API v1 integration (using https://www.googleapis.com/auth/gmail.compose)
 - Multi-user support: dynamically resolves credentials from Firestore for active user
-- Dual-mode architecture: seamlessly falls back to thread-safe local persistent storage (.gmail_local.json)
-- Zero-cost guarantee (never requires paid API credits)
+- Production Render support: loads GOOGLE_TOKEN_JSON or /etc/secrets/token.json with in-memory refresh
+- Dual-mode architecture: seamlessly falls back to local storage in MOCK_MODE for tests
+- Explicit error reporting: never falsely claims an email was sent if Gmail API is disconnected
 - Enforces strict Human-in-the-Loop approval protocol
 """
 
@@ -25,6 +28,7 @@ from typing import Optional, List, Dict, Any
 from app.config import get_settings
 from app.core.usage_tracker import usage_tracker
 from app.core.context import current_user_id
+from app.tools.google_auth_helper import get_live_google_credentials, refresh_credentials_in_memory
 
 logger = logging.getLogger("synaptix.tools.gmail")
 
@@ -40,20 +44,17 @@ GMAIL_SCOPES = [
 class GmailService:
     """
     Dual-mode Gmail service provider.
-    Supports live Gmail API v1 with per-user dynamic OAuth from Firestore
-    and thread-safe persistent fallback storage.
+    Supports live Gmail API v1 with per-user dynamic OAuth from Firestore,
+    production environment variable / secret file credentials, and local fallback storage.
     """
 
     def __init__(self, token_path: Optional[str] = None):
         self.settings = get_settings()
         self._lock = threading.Lock()
         self.token_path = Path(token_path) if token_path else DEFAULT_TOKEN_FILE
-        self.is_live_gmail = False
-        self._service = None
         self._drafts: Dict[str, Dict[str, Any]] = {}
 
         self._load_local_drafts()
-        self._init_live_client()
 
     def _load_local_drafts(self) -> None:
         """Load local fallback drafts from disk."""
@@ -79,99 +80,73 @@ class GmailService:
         except Exception as exc:
             logger.warning("Failed to persist local email drafts: %s", exc)
 
-    def _init_live_client(self) -> None:
-        """Attempt to initialize fallback Google Gmail API v1 client from token.json."""
-        if not self.token_path.exists():
-            logger.info("No token.json detected at %s. Operating in zero-cost local draft mode.", self.token_path)
-            self.is_live_gmail = False
-            return
-
-        try:
-            from google.oauth2.credentials import Credentials
-            from google.auth.transport.requests import Request
-            from googleapiclient.discovery import build
-
-            creds = Credentials.from_authorized_user_file(str(self.token_path), GMAIL_SCOPES)
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                    self.token_path.write_text(creds.to_json(), encoding="utf-8")
-                except Exception as ref_err:
-                    logger.warning("Could not refresh token.json: %s", ref_err)
-
-            if creds and creds.valid:
-                granted_scopes = creds.scopes or []
-                has_compose = any("gmail.compose" in s for s in granted_scopes)
-                if not has_compose:
-                    logger.warning(
-                        "token.json exists but lacks 'https://www.googleapis.com/auth/gmail.compose' scope."
-                    )
-                    self.is_live_gmail = False
-                    return
-
-                self._service = build("gmail", "v1", credentials=creds)
-                self.is_live_gmail = True
-                logger.info("Live Google Gmail API initialized successfully from token.json.")
-            else:
-                self.is_live_gmail = False
-                logger.warning("Google OAuth token is invalid or lacks required permissions.")
-        except Exception as exc:
-            self.is_live_gmail = False
-            logger.warning("Could not initialize live Gmail client: %s. Using local fallback.", exc)
-
     def get_user_gmail_client(self, user_id: Optional[str] = None):
         """
-        Dynamically loads Google OAuth credentials for a specific user from Firestore.
-        Auto-refreshes expired access tokens and persists updated tokens back to Firestore.
-        Falls back to global token.json client or None if unconfigured.
+        Dynamically loads Google OAuth credentials with in-memory token refresh.
+        Checks active user's Firestore tokens, GOOGLE_TOKEN_JSON env, Render Secret Files, or local token.json.
+        Returns active googleapiclient Gmail v1 Resource if available, else None.
         """
+        if self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
+            return None
+
         target_uid = user_id or current_user_id.get("default_user")
-        if target_uid and target_uid != "default_user":
+        creds, source = get_live_google_credentials(target_uid, GMAIL_SCOPES)
+        if creds and creds.valid:
             try:
-                from app.database.firestore import firestore_service
-                tokens = firestore_service.get_user_tokens(target_uid)
-                if tokens:
-                    from google.oauth2.credentials import Credentials
-                    from google.auth.transport.requests import Request
-                    from googleapiclient.discovery import build
-
-                    client_id = tokens.get("client_id") or self.settings.effective_client_id
-                    client_secret = tokens.get("client_secret") or self.settings.effective_client_secret
-                    creds = Credentials(
-                        token=tokens.get("access_token"),
-                        refresh_token=tokens.get("refresh_token"),
-                        token_uri="https://oauth2.googleapis.com/token",
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        scopes=self.settings.GOOGLE_OAUTH_SCOPES,
-                    )
-
-                    if creds and creds.expired and creds.refresh_token:
-                        try:
-                            creds.refresh(Request())
-                            updated_tokens = dict(tokens)
-                            updated_tokens["access_token"] = creds.token
-                            if creds.expiry:
-                                updated_tokens["expires_at"] = creds.expiry.isoformat()
-                            firestore_service.save_user_tokens(target_uid, updated_tokens)
-                            logger.info("Refreshed expired Gmail OAuth token for user: %s", target_uid)
-                        except Exception as ref_err:
-                            logger.warning("Failed refreshing token for user %s: %s", target_uid, ref_err)
-
-                    if creds and creds.valid:
-                        return build("gmail", "v1", credentials=creds)
+                from googleapiclient.discovery import build
+                client = build("gmail", "v1", credentials=creds)
+                return client
             except Exception as exc:
-                logger.warning("Failed to construct dynamic Gmail client for user %s: %s", target_uid, exc)
-
-        # Fallback to default local token client
-        if self.is_live_gmail and self._service:
-            return self._service
+                logger.error("Failed to construct Gmail API client from %s: %s", source, exc)
         return None
 
     @property
+    def is_live_gmail(self) -> bool:
+        """Returns True if live Gmail credentials can be resolved."""
+        if self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
+            return False
+        client = self.get_user_gmail_client()
+        return client is not None
+
+    @property
     def is_configured(self) -> bool:
-        """Returns True if Google OAuth Client ID is configured in settings or live Gmail is active."""
-        return bool(self.settings.effective_client_id) or self.is_live_gmail
+        """Returns True if Google OAuth credentials exist in any layer."""
+        return self.is_live_gmail or bool(self.settings.effective_client_id)
+
+    def get_connection_status(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Diagnostic helper returning detailed connection state for the active user."""
+        target_uid = user_id or current_user_id.get("default_user")
+        creds, source = get_live_google_credentials(target_uid, GMAIL_SCOPES)
+        if creds and creds.valid:
+            email_addr = None
+            try:
+                from googleapiclient.discovery import build
+                srv = build("gmail", "v1", credentials=creds)
+                profile = srv.users().getProfile(userId="me").execute()
+                email_addr = profile.get("emailAddress")
+            except Exception as exc:
+                logger.debug("Could not fetch Gmail profile: %s", exc)
+
+            granted = creds.scopes or []
+            has_compose = any("gmail.compose" in s for s in granted)
+            return {
+                "is_live_gmail": True,
+                "can_send": has_compose,
+                "email": email_addr,
+                "source": source,
+                "user_id": target_uid,
+                "scopes": granted,
+                "message": f"Connected to Live Gmail as {email_addr}" if email_addr else "Connected to Live Google Gmail API.",
+            }
+
+        return {
+            "is_live_gmail": False,
+            "can_send": False,
+            "email": None,
+            "source": "offline_simulator",
+            "user_id": target_uid,
+            "message": "Live Gmail is not connected. Sign in with Google or configure GOOGLE_TOKEN_JSON on Render.",
+        }
 
     def create_email_draft(
         self,
@@ -182,8 +157,8 @@ class GmailService:
     ) -> Dict[str, Any]:
         """
         Creates an email draft.
-        If live Gmail is authenticated for the user, creates a real draft in their Gmail mailbox.
-        Otherwise, stores safely in .gmail_local.json for testing and zero-cost operation.
+        If in live production with credentials, creates a real draft in the user's Gmail mailbox.
+        Otherwise (or in MOCK_MODE), stores safely in fallback storage for testing.
         """
         usage_tracker.record_tool_call("gmail")
         uid = user_id or current_user_id.get("default_user")
@@ -191,41 +166,43 @@ class GmailService:
         subject_clean = subject.strip()
         body_clean = body.strip()
 
-        client = self.get_user_gmail_client(uid)
-        if client:
-            try:
-                mime_msg = MIMEText(body_clean)
-                mime_msg["to"] = to_clean
-                mime_msg["subject"] = subject_clean
-                raw_bytes = base64.urlsafe_b64encode(mime_msg.as_bytes()).decode("utf-8")
+        # In MOCK_MODE or test environment, bypass live external API
+        if not (self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true"):
+            client = self.get_user_gmail_client(uid)
+            if client:
+                try:
+                    mime_msg = MIMEText(body_clean)
+                    mime_msg["to"] = to_clean
+                    mime_msg["subject"] = subject_clean
+                    raw_bytes = base64.urlsafe_b64encode(mime_msg.as_bytes()).decode("utf-8")
 
-                draft_payload = {"message": {"raw": raw_bytes}}
-                created_draft = (
-                    client.users()
-                    .drafts()
-                    .create(userId="me", body=draft_payload)
-                    .execute()
-                )
-                draft_id = created_draft.get("id", f"draft-{uuid.uuid4().hex[:6]}")
-                result = {
-                    "draft_id": draft_id,
-                    "id": draft_id,
-                    "to": to_clean,
-                    "subject": subject_clean,
-                    "body": body_clean,
-                    "status": "draft",
-                    "user_id": uid,
-                    "is_live_gmail": True,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "source": "google_gmail_api",
-                }
-                with self._lock:
-                    self._drafts[draft_id] = result
-                    self._persist_local_drafts()
-                logger.info("Live Gmail draft created with ID: %s for user: %s", draft_id, uid)
-                return result
-            except Exception as exc:
-                logger.error("Live Gmail draft creation failed: %s. Falling back to local storage.", exc)
+                    draft_payload = {"message": {"raw": raw_bytes}}
+                    created_draft = (
+                        client.users()
+                        .drafts()
+                        .create(userId="me", body=draft_payload)
+                        .execute()
+                    )
+                    draft_id = created_draft.get("id", f"draft-{uuid.uuid4().hex[:6]}")
+                    result = {
+                        "draft_id": draft_id,
+                        "id": draft_id,
+                        "to": to_clean,
+                        "subject": subject_clean,
+                        "body": body_clean,
+                        "status": "draft",
+                        "user_id": uid,
+                        "is_live_gmail": True,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "source": "google_gmail_api",
+                    }
+                    with self._lock:
+                        self._drafts[draft_id] = result
+                        self._persist_local_drafts()
+                    logger.info("Live Gmail draft created with ID: %s for user: %s", draft_id, uid)
+                    return result
+                except Exception as exc:
+                    logger.error("Live Gmail draft creation failed: %s. Falling back to local storage.", exc)
 
         # Local Fallback Mode
         draft_id = f"draft-{uuid.uuid4().hex[:6]}"
@@ -251,87 +228,175 @@ class GmailService:
     def send_email_draft(self, draft_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Sends an existing email draft after explicit human approval.
-        If live Gmail is authenticated for the user, dispatches via Gmail API drafts.send.
-        Otherwise, updates local draft status to 'sent'.
+        If MOCK_MODE: simulates dispatch in local store for tests.
+        If live Gmail is available:
+          - If created in Gmail (starts with 'r'), sends via drafts().send().
+          - If created as a local draft (starts with 'draft-'), delivers real email via messages().send().
+          - Automatically refreshes token in memory and retries if 401 occurs.
+        If live Gmail is NOT available:
+          - In Production: returns sent: False with clear actionable error.
         """
         usage_tracker.record_tool_call("gmail")
         uid = user_id or current_user_id.get("default_user")
         draft_id_clean = draft_id.strip()
 
-        client = self.get_user_gmail_client(uid)
-        if client:
+        # 1. LOCAL SIMULATOR (ONLY allowed in MOCK_MODE / automated tests)
+        if self.settings.MOCK_MODE or os.getenv("MOCK_MODE", "").lower() == "true":
+            with self._lock:
+                target = self._drafts.get(draft_id_clean)
+                if not target:
+                    for did, d in self._drafts.items():
+                        if draft_id_clean.lower() in did.lower():
+                            target = d
+                            draft_id_clean = did
+                            break
+
+                if not target:
+                    return {
+                        "draft_id": draft_id_clean,
+                        "sent": False,
+                        "error": f"Draft with ID '{draft_id_clean}' not found.",
+                        "status": "not_found",
+                    }
+
+                if target.get("status") == "sent":
+                    return {
+                        "draft_id": draft_id_clean,
+                        "sent": True,
+                        "already_sent": True,
+                        "status": "sent",
+                        "user_id": target.get("user_id"),
+                        "sent_at": target.get("sent_at"),
+                        "note": "Draft was already sent previously.",
+                    }
+
+                target["status"] = "sent"
+                target["sent_at"] = datetime.now(timezone.utc).isoformat()
+                self._drafts[draft_id_clean] = target
+                self._persist_local_drafts()
+
+            logger.info("MOCK_MODE: Local draft %s marked as sent for user %s.", draft_id_clean, uid)
+            return {
+                "draft_id": draft_id_clean,
+                "to": target.get("to"),
+                "subject": target.get("subject"),
+                "sent": True,
+                "status": "sent",
+                "user_id": target.get("user_id"),
+                "is_live_gmail": False,
+                "sent_at": target.get("sent_at"),
+                "source": "local_persistent_storage",
+            }
+
+        # 2. LIVE GMAIL DISPATCH (Production)
+        creds, source = get_live_google_credentials(uid, GMAIL_SCOPES)
+        client = None
+        if creds and creds.valid:
             try:
-                sent_msg = (
-                    client.users()
-                    .drafts()
-                    .send(userId="me", body={"id": draft_id_clean})
-                    .execute()
-                )
-                with self._lock:
-                    if draft_id_clean in self._drafts:
-                        self._drafts[draft_id_clean]["status"] = "sent"
-                        self._drafts[draft_id_clean]["sent_at"] = datetime.now(timezone.utc).isoformat()
+                from googleapiclient.discovery import build
+                client = build("gmail", "v1", credentials=creds)
+            except Exception as b_err:
+                logger.error("Failed building Gmail API client: %s", b_err)
+
+        if client and creds:
+            # Helper to execute with automatic in-memory 401 token refresh retry
+            def _execute_with_refresh(build_request_fn):
+                nonlocal client, creds
+                try:
+                    return build_request_fn(client).execute()
+                except Exception as exc:
+                    err_msg = str(exc)
+                    if ("401" in err_msg or "invalid_grant" in err_msg or "expired" in err_msg.lower()) and creds.refresh_token:
+                        logger.warning("Gmail API returned auth error (%s). Refreshing token in memory and retrying...", exc)
+                        from google.auth.transport.requests import Request
+                        creds.refresh(Request())
+                        from googleapiclient.discovery import build
+                        client = build("gmail", "v1", credentials=creds)
+                        return build_request_fn(client).execute()
+                    raise
+
+            # Attempt A: Live draft in Gmail mailbox
+            if not draft_id_clean.startswith("draft-"):
+                try:
+                    sent_msg = _execute_with_refresh(
+                        lambda c: c.users().drafts().send(userId="me", body={"id": draft_id_clean})
+                    )
+                    with self._lock:
+                        if draft_id_clean in self._drafts:
+                            self._drafts[draft_id_clean]["status"] = "sent"
+                            self._drafts[draft_id_clean]["sent_at"] = datetime.now(timezone.utc).isoformat()
+                            self._persist_local_drafts()
+                    logger.info("Live Gmail draft %s sent successfully for user %s. Message ID: %s", draft_id_clean, uid, sent_msg.get("id"))
+                    return {
+                        "draft_id": draft_id_clean,
+                        "message_id": sent_msg.get("id"),
+                        "sent": True,
+                        "status": "sent",
+                        "user_id": uid,
+                        "is_live_gmail": True,
+                        "sent_at": datetime.now(timezone.utc).isoformat(),
+                        "source": "google_gmail_api",
+                    }
+                except Exception as exc:
+                    logger.warning("drafts.send failed for draft %s: %s. Attempting fallback direct message dispatch.", draft_id_clean, exc)
+
+            # Attempt B: Dispatch local draft content via live Gmail messages().send()
+            with self._lock:
+                target = self._drafts.get(draft_id_clean)
+                if not target:
+                    for did, d in self._drafts.items():
+                        if draft_id_clean.lower() in did.lower():
+                            target = d
+                            draft_id_clean = did
+                            break
+
+            if target and target.get("to") and target.get("body"):
+                try:
+                    mime_msg = MIMEText(target["body"])
+                    mime_msg["to"] = target["to"]
+                    mime_msg["subject"] = target.get("subject", "No Subject")
+                    raw_bytes = base64.urlsafe_b64encode(mime_msg.as_bytes()).decode("utf-8")
+                    sent_msg = _execute_with_refresh(
+                        lambda c: c.users().messages().send(userId="me", body={"raw": raw_bytes})
+                    )
+                    with self._lock:
+                        target["status"] = "sent"
+                        target["sent_at"] = datetime.now(timezone.utc).isoformat()
+                        target["message_id"] = sent_msg.get("id")
+                        target["is_live_gmail"] = True
                         self._persist_local_drafts()
-                logger.info("Live Gmail draft %s sent successfully for user %s. Message ID: %s", draft_id_clean, uid, sent_msg.get("id"))
-                return {
-                    "draft_id": draft_id_clean,
-                    "message_id": sent_msg.get("id"),
-                    "sent": True,
-                    "status": "sent",
-                    "user_id": uid,
-                    "is_live_gmail": True,
-                    "sent_at": datetime.now(timezone.utc).isoformat(),
-                    "source": "google_gmail_api",
-                }
-            except Exception as exc:
-                logger.error("Live Gmail draft send failed: %s. Checking local drafts.", exc)
+                    logger.info("Successfully dispatched real email via messages.send for draft %s to %s. Message ID: %s",
+                                draft_id_clean, target["to"], sent_msg.get("id"))
+                    return {
+                        "draft_id": draft_id_clean,
+                        "message_id": sent_msg.get("id"),
+                        "to": target["to"],
+                        "subject": target.get("subject"),
+                        "sent": True,
+                        "status": "sent",
+                        "user_id": uid,
+                        "is_live_gmail": True,
+                        "sent_at": target["sent_at"],
+                        "source": "google_gmail_api",
+                    }
+                except Exception as send_err:
+                    logger.error("messages.send failed for draft %s: %s", draft_id_clean, send_err)
+                    return {
+                        "draft_id": draft_id_clean,
+                        "sent": False,
+                        "status": "failed",
+                        "error": f"Google Gmail API error while sending: {str(send_err)}",
+                        "is_live_gmail": True,
+                    }
 
-        # Local Fallback Mode
-        with self._lock:
-            target = self._drafts.get(draft_id_clean)
-            if not target:
-                # Try finding by partial ID or case-insensitive
-                for did, d in self._drafts.items():
-                    if draft_id_clean.lower() in did.lower():
-                        target = d
-                        draft_id_clean = did
-                        break
-
-            if not target:
-                return {
-                    "draft_id": draft_id_clean,
-                    "sent": False,
-                    "error": f"Draft with ID '{draft_id_clean}' not found.",
-                    "status": "not_found",
-                }
-
-            if target.get("status") == "sent":
-                return {
-                    "draft_id": draft_id_clean,
-                    "sent": True,
-                    "already_sent": True,
-                    "status": "sent",
-                    "user_id": target.get("user_id"),
-                    "sent_at": target.get("sent_at"),
-                    "note": "Draft was already sent previously.",
-                }
-
-            target["status"] = "sent"
-            target["sent_at"] = datetime.now(timezone.utc).isoformat()
-            self._drafts[draft_id_clean] = target
-            self._persist_local_drafts()
-
-        logger.info("Local draft %s marked as sent for user %s.", draft_id_clean, uid)
+        # 3. PRODUCTION FAILURE SURFACING: Refuse silent offline fake sends
+        logger.error("Cannot send email draft %s: Live Gmail is not connected for user %s.", draft_id_clean, uid)
         return {
             "draft_id": draft_id_clean,
-            "to": target.get("to"),
-            "subject": target.get("subject"),
-            "sent": True,
-            "status": "sent",
-            "user_id": target.get("user_id"),
+            "sent": False,
+            "status": "failed",
+            "error": "Live Gmail is not connected. Please connect Google OAuth or configure GOOGLE_TOKEN_JSON in Render environment variables.",
             "is_live_gmail": False,
-            "sent_at": target.get("sent_at"),
-            "source": "local_persistent_storage",
         }
 
     def get_draft(self, draft_id: str) -> Optional[Dict[str, Any]]:
@@ -339,16 +404,15 @@ class GmailService:
         with self._lock:
             return self._drafts.get(draft_id)
 
-    def list_drafts(self, status: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List drafts filtered by status ('draft' or 'sent') and optional user_id."""
+    def list_drafts(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List drafts filtered by user."""
+        uid = user_id or current_user_id.get("default_user")
         with self._lock:
-            items = list(self._drafts.values())
-            if user_id:
-                items = [i for i in items if i.get("user_id") == user_id or not i.get("user_id") or user_id == "default_user"]
-            if status:
-                items = [i for i in items if i.get("status") == status]
+            items = []
+            for did, d in self._drafts.items():
+                if d.get("user_id") == uid or uid == "default_user":
+                    items.append(d.copy())
             return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
 
 
-# Singleton Gmail Service instance
 gmail_service = GmailService()

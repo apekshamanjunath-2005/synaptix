@@ -339,7 +339,8 @@ async def logout():
 async def guest_login(request: Request):
     """
     Instant zero-cost guest login for offline development, evaluation, and testing.
-    Creates a guest profile and issues a session cookie with 302 redirect.
+    Creates a guest profile and issues a session cookie.
+    Returns JSON for AJAX/fetch calls or redirects to home for browser links.
     """
     guest_id = "guest_user"
     profile = {
