@@ -3112,86 +3112,86 @@ a {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   16. RESPONSIVE MEDIA QUERIES
+   16. RESPONSIVE MEDIA QUERIES (Mobile & Tablet 2-Line Navbar Layout)
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
+  /* Switch floating top navbar into a clean two-line layout on mobile/tablet */
   .top-navbar {
     width: calc(100% - 16px);
-    padding: 0 10px;
-    height: 54px;
-  }
-  .top-nav-center,
-  .nav-links,
-  .horizontal-nav {
-    overflow-x: auto !important;
-    scrollbar-width: none;
-    max-width: 100%;
-  }
-  .top-nav-center::-webkit-scrollbar,
-  .nav-links::-webkit-scrollbar,
-  .horizontal-nav::-webkit-scrollbar {
-    display: none;
-  }
-  .navbar-history-btn {
-    display: flex;
-  }
-  .how-steps-grid {
-    grid-template-columns: 1fr;
-  }
-  .cal-detail-columns {
-    grid-template-columns: 1fr;
-  }
-  .weather-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  /* Prevent 'Synaptix AI' and 'AI Assistant' collision/overlap */
-  .top-navbar {
-    width: calc(100% - 16px);
-    height: 52px;
-    padding: 0 10px;
+    max-width: 680px;
+    height: auto !important;
+    min-height: 82px;
+    padding: 8px 12px 6px 12px;
     margin: 8px auto 0 auto;
-    border-radius: var(--radius-lg);
+    border-radius: 18px;
   }
 
   .top-navbar-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    row-gap: 6px !important;
+    column-gap: 0 !important;
+    width: 100% !important;
   }
 
+  /* Line 1 (Top row): Brand Logo on Left (order: 1) */
   .navbar-left {
-    flex-shrink: 0;
-    gap: 8px;
-    margin-right: 4px;
+    order: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    gap: 8px !important;
+    margin: 0 !important;
   }
 
-  .brand {
-    gap: 6px;
+  .navbar-history-btn {
+    display: flex;
   }
 
-  .brand-monogram {
-    width: 28px;
-    height: 28px;
+  /* Line 1 (Top row): Actions & User Pill on Right (order: 2) */
+  .navbar-right {
+    order: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex: 0 0 auto !important;
+    gap: 6px !important;
+    margin: 0 !important;
   }
 
-  .brand-monogram svg {
-    width: 17px;
-    height: 17px;
+  /* Line 2 (Bottom row): Navigation Links in full-width touch-scrollable strip (order: 3) */
+  .top-nav-center,
+  .nav-links,
+  .horizontal-nav,
+  .nav-menu.horizontal-nav {
+    order: 3 !important;
+    flex: 1 0 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding: 4px 2px 2px 2px !important;
+    gap: 6px !important;
+    margin: 2px 0 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
   }
 
-  .brand-title {
-    font-size: 0.9rem;
-    white-space: nowrap;
-  }
-
-  .brand-badge {
-    font-size: 0.6rem;
-    padding: 1px 5px;
+  .top-nav-center::-webkit-scrollbar,
+  .nav-links::-webkit-scrollbar,
+  .horizontal-nav::-webkit-scrollbar {
+    display: none !important;
   }
 
   /* Swap redundant 'AI Assistant' label to concise 'Chat' on mobile */
@@ -3201,21 +3201,6 @@ a {
 
   .nav-label-mobile {
     display: inline !important;
-  }
-
-  .top-nav-center,
-  .nav-links,
-  .horizontal-nav {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    white-space: nowrap !important;
-    gap: 6px !important;
-    padding: 4px 2px !important;
-    justify-content: flex-start !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
   }
 
   .top-nav-center .nav-item,
@@ -3228,9 +3213,22 @@ a {
     flex-shrink: 0 !important;
   }
 
-  .navbar-right {
-    flex-shrink: 0;
-    gap: 6px;
+  .how-steps-grid {
+    grid-template-columns: 1fr;
+  }
+  .cal-detail-columns {
+    grid-template-columns: 1fr;
+  }
+  .weather-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .top-navbar {
+    width: calc(100% - 16px);
+    max-width: 100%;
+    margin: 6px auto 0 auto;
   }
 
   .stats-row {
@@ -3255,6 +3253,7 @@ a {
   }
   .main-content {
     padding: 12px 14px 28px 14px !important;
+    height: calc(100vh - 88px) !important;
   }
 }
 
@@ -3262,22 +3261,32 @@ a {
   /* Extra crisp mobile layout for 375px screens */
   .top-navbar {
     width: calc(100% - 10px);
-    height: 48px;
-    padding: 0 8px;
-    margin: 6px auto 0 auto;
+    padding: 6px 10px 5px 10px;
+    margin: 5px auto 0 auto;
+    border-radius: 16px;
+    min-height: 76px;
   }
 
   .top-navbar-inner {
-    gap: 6px;
+    row-gap: 5px !important;
   }
 
   .navbar-left {
-    gap: 5px;
-    margin-right: 2px;
+    gap: 6px !important;
+  }
+
+  .brand-monogram {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .brand-monogram svg {
+    width: 16px !important;
+    height: 16px !important;
   }
 
   .brand-title {
-    font-size: 0.84rem;
+    font-size: 0.85rem !important;
   }
 
   /* On small screens under 480px, hide the secondary 'AI' badge to prevent word clutter */
@@ -3285,11 +3294,18 @@ a {
     display: none !important;
   }
 
-  .top-nav-center .nav-item,
-  .top-nav-center .nav-btn,
-  .nav-links .nav-item {
-    padding: 4px 9px !important;
-    font-size: 0.74rem !important;
+  .navbar-right {
+    gap: 5px !important;
+  }
+
+  .reminder-bell-btn {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .reminder-bell-btn svg {
+    width: 16px !important;
+    height: 16px !important;
   }
 
   .navbar-right .navbar-history-pill span {
@@ -3298,5 +3314,36 @@ a {
 
   .navbar-right .navbar-history-pill {
     padding: 5px 7px !important;
+  }
+
+  .nav-guest-btn,
+  .nav-signin-btn {
+    padding: 4px 9px !important;
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+
+  .user-profile-card.navbar-profile-card {
+    padding: 2px 8px 2px 3px !important;
+    gap: 5px !important;
+  }
+
+  .user-name {
+    font-size: 0.74rem !important;
+  }
+
+  .user-avatar {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 0.68rem !important;
+  }
+
+  .top-nav-center .nav-item,
+  .top-nav-center .nav-btn,
+  .nav-links .nav-item,
+  .horizontal-nav .nav-item,
+  .horizontal-nav .nav-btn {
+    padding: 4px 10px !important;
+    font-size: 0.73rem !important;
   }
 }
